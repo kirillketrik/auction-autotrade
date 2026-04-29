@@ -10,10 +10,11 @@ import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanController;
 import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanPageObserver;
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.BuyRuleCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyDecision;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyRule;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
 import ru.geroldina.ftauctionbot.client.domain.balance.MoneySnapshot;
 import ru.geroldina.ftauctionbot.client.infrastructure.minecraft.MinecraftClientEventListener;
 
@@ -180,12 +181,16 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
             return AuctionPageDecision.CONTINUE;
         }
 
+        int evaluatedLots = 0;
+        int matchedLots = 0;
         for (AuctionLot lot : pageLots) {
+            evaluatedLots++;
             BuyDecision decision = ruleMatcher.match(lot, configManager.getCurrentConfig().buyRules());
             logLotScanResult(lot, decision, balance);
             if (!decision.approved()) {
                 continue;
             }
+            matchedLots++;
 
             if (balance.amount() < lot.totalPrice()) {
                 logger.info(
@@ -196,6 +201,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
                 continue;
             }
 
+            logPageMatchSummary(currentPage, totalPages, evaluatedLots, matchedLots, pageLots.size());
             gateway.clickSlot(syncId, lot.slotIndex(), 0, SlotActionType.QUICK_MOVE);
             purchaseSuppressionTicks = PURCHASE_SUPPRESSION_TICKS;
             suppressedSyncId = syncId;
@@ -211,6 +217,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
             return AuctionPageDecision.CONTINUE;
         }
 
+        logPageMatchSummary(currentPage, totalPages, evaluatedLots, matchedLots, pageLots.size());
         return AuctionPageDecision.CONTINUE;
     }
 
@@ -266,6 +273,16 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         logger.info("AUTOBUY_SCAN_RESULT", message.toString());
     }
 
+    private void logPageMatchSummary(int currentPage, int totalPages, int evaluatedLots, int matchedLots, int totalLotsOnPage) {
+        logger.info(
+            "AUTOBUY_LOOP",
+            "Evaluated autobuy rules for page " + currentPage + "/" + totalPages
+                + ": parsedLots=" + totalLotsOnPage
+                + ", evaluatedLots=" + evaluatedLots
+                + ", matchedLots=" + matchedLots
+        );
+    }
+
     private List<ScanTask> buildScanTasks(List<BuyRule> rules, int pageLimit) {
         Set<String> uniqueQueries = new LinkedHashSet<>();
         boolean requiresGenericScan = false;
@@ -296,12 +313,11 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     }
 
     private String resolveSearchQuery(BuyRule rule) {
-        if (rule.displayNameEquals() != null && !rule.displayNameEquals().isBlank()) {
-            return rule.displayNameEquals().trim();
-        }
-
-        if (rule.displayNameContains() != null && !rule.displayNameContains().isBlank()) {
-            return rule.displayNameContains().trim();
+        for (BuyRuleCondition condition : rule.conditions()) {
+            String query = condition.searchQuery().orElse(null);
+            if (query != null && !query.isBlank()) {
+                return query.trim();
+            }
         }
 
         return null;

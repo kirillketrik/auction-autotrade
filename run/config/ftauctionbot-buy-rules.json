@@ -1,0 +1,49 @@
+{
+  "scanIntervalSeconds": 15,
+  "scanPageLimit": 6,
+  "buyRules": [
+    {
+      "id": "holy-water",
+      "name": "Святая вода",
+      "enabled": true,
+      "conditions": [
+        {
+          "type": "minecraft_id",
+          "minecraftId": "minecraft:splash_potion"
+        },
+        {
+          "type": "max_unit_price",
+          "value": 550000
+        },
+        {
+          "type": "min_count",
+          "value": 1
+        },
+        {
+          "type": "display_name_contains",
+          "value": "Святая вода"
+        },
+        {
+          "type": "required_potion_effects",
+          "value": [
+            {
+              "id": "minecraft:regeneration",
+              "level": 2,
+              "durationSeconds": 45
+            },
+            {
+              "id": "minecraft:invisibility",
+              "level": 2,
+              "durationSeconds": 600
+            },
+            {
+              "id": "minecraft:instant_health",
+              "level": 2,
+              "durationSeconds": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

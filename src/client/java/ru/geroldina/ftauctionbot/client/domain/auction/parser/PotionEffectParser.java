@@ -11,6 +11,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class PotionEffectParser implements ItemStackParser<List<PotionEffectData>> {
+    private static final int TICKS_PER_SECOND = 20;
+
+    static int toDurationSeconds(int durationTicks) {
+        return durationTicks / TICKS_PER_SECOND;
+    }
+
+    static int toDisplayedLevel(int amplifier) {
+        return amplifier + 1;
+    }
+
     @Override
     public List<PotionEffectData> parse(ItemStack stack) {
         PotionContentsComponent potionContents = stack.get(DataComponentTypes.POTION_CONTENTS);
@@ -29,8 +39,8 @@ public final class PotionEffectParser implements ItemStackParser<List<PotionEffe
 
             effects.add(new PotionEffectData(
                 id,
-                effect.getAmplifier(),
-                effect.getDuration()
+                toDisplayedLevel(effect.getAmplifier()),
+                toDurationSeconds(effect.getDuration())
             ));
         }
 

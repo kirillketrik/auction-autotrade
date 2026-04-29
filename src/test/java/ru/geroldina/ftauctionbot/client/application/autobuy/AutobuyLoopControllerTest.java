@@ -14,6 +14,9 @@ import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanPageObserver
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.DefaultAutobuyRuleMatcher;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameContainsCondition;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxUnitPriceCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyRule;
@@ -34,7 +37,7 @@ class AutobuyLoopControllerTest {
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
             () -> new AutobuyConfig(5, 7, AutobuyScanLogMode.MATCHED_ONLY, List.of(
-                new BuyRule("generic", "Generic", true, "minecraft:stone", null, null, null, null, null, null, List.of(), List.of(), List.of(), List.of())
+                BuyRule.of("generic", "Generic", true, new ItemIdCondition("minecraft:stone"))
             )),
             new FakeLogger()
         );
@@ -65,7 +68,7 @@ class AutobuyLoopControllerTest {
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
             () -> new AutobuyConfig(5, 7, AutobuyScanLogMode.MATCHED_ONLY, List.of(
-                new BuyRule("totem", "Totem", true, "minecraft:totem_of_undying", null, null, null, 7_000_000L, null, null, List.of(), List.of(), List.of(), List.of())
+                BuyRule.of("totem", "Totem", true, new ItemIdCondition("minecraft:totem_of_undying"), new MaxUnitPriceCondition(7_000_000L))
             )),
             new FakeLogger()
         );
@@ -104,8 +107,8 @@ class AutobuyLoopControllerTest {
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
             () -> new AutobuyConfig(5, 7, AutobuyScanLogMode.MATCHED_ONLY, List.of(
-                new BuyRule("stone", "Stone", true, "minecraft:stone", "Булыжник", null, null, null, null, null, List.of(), List.of(), List.of(), List.of()),
-                new BuyRule("generic", "Generic", true, "minecraft:dirt", null, null, null, null, null, null, List.of(), List.of(), List.of(), List.of())
+                BuyRule.of("stone", "Stone", true, new ItemIdCondition("minecraft:stone"), new DisplayNameContainsCondition("Булыжник")),
+                BuyRule.of("generic", "Generic", true, new ItemIdCondition("minecraft:dirt"))
             )),
             new FakeLogger()
         );

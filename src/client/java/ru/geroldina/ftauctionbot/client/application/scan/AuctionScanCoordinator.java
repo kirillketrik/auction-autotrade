@@ -1,7 +1,12 @@
 package ru.geroldina.ftauctionbot.client.application.scan;
 
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.ItemEnchantmentsComponent;
+import net.minecraft.component.type.PotionContentsComponent;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.screen.ScreenHandler;
 import net.minecraft.screen.slot.SlotActionType;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionScanResult;
@@ -212,6 +217,7 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
             }
 
             var lot = lotExtractor.extract(stack, pageInfo.currentPage(), slotIndex);
+            logRawLotComponents(stack, lot);
             currentSession.scannedItems.add(lot);
             pageLots.add(lot);
             addedOnPage++;
@@ -327,5 +333,50 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
 
     private AuctionScanSession requireSession() {
         return Objects.requireNonNull(session, "Auction scan session is not initialized");
+    }
+
+    private void logRawLotComponents(ItemStack stack, ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot lot) {
+        PotionContentsComponent potionContents = stack.get(DataComponentTypes.POTION_CONTENTS);
+        ItemEnchantmentsComponent enchantments = stack.get(DataComponentTypes.ENCHANTMENTS);
+        ItemEnchantmentsComponent storedEnchantments = stack.get(DataComponentTypes.STORED_ENCHANTMENTS);
+
+        boolean hasPotionContents = potionContents != null && potionContents.hasEffects();
+        boolean hasEnchantments = enchantments != null && !enchantments.isEmpty();
+        boolean hasStoredEnchantments = storedEnchantments != null && !storedEnchantments.isEmpty();
+        if (!hasPotionContents && !hasEnchantments && !hasStoredEnchantments) {
+            return;
+        }
+
+        List<String> lines = new ArrayList<>();
+        lines.add("raw component dump for lot page=" + lot.page()
+            + ", slot=" + lot.slotIndex()
+            + ", item=" + lot.minecraftId()
+            + ", name=\"" + lot.displayName() + "\"");
+        lines.add("parsed potionEffects=" + lot.potionEffects());
+        lines.add("parsed enchantments=" + lot.enchantments());
+        lines.add("raw potionContents=" + potionContents);
+        lines.add("raw enchantments=" + enchantments);
+        lines.add("raw storedEnchantments=" + storedEnchantments);
+        lines.add("raw components=" + stack.getComponents());
+
+        if (hasPotionContents) {
+            int effectIndex = 0;
+            for (StatusEffectInstance effect : potionContents.getEffects()) {
+                RegistryEntry<?> effectType = effect.getEffectType();
+                String effectId = effectType.getKey()
+                    .map(key -> key.getValue().toString())
+                    .orElse(effectType.getIdAsString());
+                lines.add("raw potionEffect[" + effectIndex + "]"
+                    + " id=" + effectId
+                    + ", amplifier=" + effect.getAmplifier()
+                    + ", displayedLevel=" + (effect.getAmplifier() + 1)
+                    + ", durationTicks=" + effect.getDuration()
+                    + ", parsedDurationSeconds=" + (effect.getDuration() / 20)
+                    + ", rawObject=" + effect);
+                effectIndex++;
+            }
+        }
+
+        logger.block("SCANNER_DEBUG", lines);
     }
 }

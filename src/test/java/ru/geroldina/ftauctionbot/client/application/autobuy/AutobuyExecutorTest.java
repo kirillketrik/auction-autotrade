@@ -7,6 +7,8 @@ import ru.geroldina.ftauctionbot.client.application.balance.BalanceService;
 import ru.geroldina.ftauctionbot.client.application.scan.AuctionClientGateway;
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxTotalPriceCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyAttemptResult;
@@ -28,7 +30,7 @@ class AutobuyExecutorTest {
         FakeGateway gateway = new FakeGateway();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(() -> new AutobuyConfig(30, 10, AutobuyScanLogMode.MATCHED_ONLY, List.of(
-            new BuyRule("totem", "Totem", true, "minecraft:totem_of_undying", null, null, 7_000_000L, null, null, null, List.of(), List.of(), List.of(), List.of())
+            BuyRule.of("totem", "Totem", true, new ItemIdCondition("minecraft:totem_of_undying"), new MaxTotalPriceCondition(7_000_000L))
         )), new FakeLogger());
         configManager.loadStartup();
         AutobuyExecutor executor = new AutobuyExecutor(
