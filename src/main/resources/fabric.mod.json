@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "ftauctionbot",
+  "version": "${version}",
+  "name": "FT Auction Bot",
+  "description": "Client-side Fabric mod scaffold for automating player auction workflows on FunTime.",
+  "authors": [
+    "geroldina"
+  ],
+  "license": "All-Rights-Reserved",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "ru.geroldina.ftauctionbot.FtAuctionBotMod"
+    ],
+    "client": [
+      "ru.geroldina.ftauctionbot.client.FtAuctionBotClient"
+    ]
+  },
+  "mixins": [
+    "ftauctionbot.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.16.9",
+    "minecraft": "~1.21.4",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

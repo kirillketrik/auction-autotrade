@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "ru.geroldina.ftauctionbot.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientConnectionMixin",
+    "ClientPlayNetworkHandlerMixin",
+    "MinecraftClientMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

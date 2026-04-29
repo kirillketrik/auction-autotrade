@@ -1,0 +1,312 @@
+package ru.geroldina.ftauctionbot.client.application.autobuy;
+
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.screen.slot.SlotActionType;
+import ru.geroldina.ftauctionbot.client.application.balance.BalanceObserver;
+import ru.geroldina.ftauctionbot.client.application.balance.BalanceService;
+import ru.geroldina.ftauctionbot.client.application.scan.AuctionClientGateway;
+import ru.geroldina.ftauctionbot.client.application.scan.AuctionPageDecision;
+import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanController;
+import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanPageObserver;
+import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
+import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyDecision;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyRule;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
+import ru.geroldina.ftauctionbot.client.domain.balance.MoneySnapshot;
+import ru.geroldina.ftauctionbot.client.infrastructure.minecraft.MinecraftClientEventListener;
+
+import java.util.ArrayDeque;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Queue;
+import java.util.Set;
+
+public final class AutobuyLoopController implements MinecraftClientEventListener, BalanceObserver, AuctionScanPageObserver {
+    private static final int TICKS_PER_SECOND = 20;
+    private static final int PURCHASE_SUPPRESSION_TICKS = 40;
+
+    private final AuctionClientGateway gateway;
+    private final AuctionScanController scanController;
+    private final BalanceService balanceService;
+    private final AutobuyConfigManager configManager;
+    private final AutobuyRuleMatcher ruleMatcher;
+    private final ScanLogger logger;
+
+    private boolean enabled;
+    private boolean waitingForBalance;
+    private int ticksUntilNextScan;
+    private boolean scanCycleActive;
+    private int purchaseSuppressionTicks;
+    private int suppressedSyncId = -1;
+    private final Queue<ScanTask> pendingScanTasks = new ArrayDeque<>();
+
+    public AutobuyLoopController(
+        AuctionClientGateway gateway,
+        AuctionScanController scanController,
+        BalanceService balanceService,
+        AutobuyConfigManager configManager,
+        AutobuyRuleMatcher ruleMatcher,
+        ScanLogger logger
+    ) {
+        this.gateway = gateway;
+        this.scanController = scanController;
+        this.balanceService = balanceService;
+        this.configManager = configManager;
+        this.ruleMatcher = ruleMatcher;
+        this.logger = logger;
+        this.balanceService.addObserver(this);
+        this.scanController.addPageObserver(this);
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void start() {
+        enabled = true;
+        ticksUntilNextScan = 0;
+        waitingForBalance = false;
+        scanCycleActive = false;
+        purchaseSuppressionTicks = 0;
+        suppressedSyncId = -1;
+        pendingScanTasks.clear();
+        logger.info("AUTOBUY_LOOP", "Autobuy loop started.");
+    }
+
+    public void stop() {
+        enabled = false;
+        ticksUntilNextScan = 0;
+        waitingForBalance = false;
+        scanCycleActive = false;
+        purchaseSuppressionTicks = 0;
+        suppressedSyncId = -1;
+        pendingScanTasks.clear();
+        logger.info("AUTOBUY_LOOP", "Autobuy loop stopped.");
+    }
+
+    @Override
+    public void onClientTick() {
+        if (purchaseSuppressionTicks > 0) {
+            purchaseSuppressionTicks--;
+            if (purchaseSuppressionTicks == 0) {
+                suppressedSyncId = -1;
+            }
+        }
+
+        if (!enabled || !gateway.isReady()) {
+            return;
+        }
+
+        if (waitingForBalance || balanceService.isAwaitingRefresh()) {
+            return;
+        }
+
+        if (scanController.isIdle() && !pendingScanTasks.isEmpty()) {
+            startNextQueuedScan();
+            return;
+        }
+
+        if (scanController.isIdle() && scanCycleActive && pendingScanTasks.isEmpty()) {
+            scanCycleActive = false;
+            scheduleNextScan();
+            logger.info("AUTOBUY_LOOP", "Completed autobuy scan cycle. Next cycle in " + configManager.getCurrentConfig().scanIntervalSeconds() + "s.");
+            return;
+        }
+
+        if (!scanController.isIdle()) {
+            return;
+        }
+
+        if (ticksUntilNextScan > 0) {
+            ticksUntilNextScan--;
+            return;
+        }
+
+        waitingForBalance = balanceService.requestRefresh();
+        if (!waitingForBalance) {
+            logger.info("AUTOBUY_LOOP", "Failed to request balance refresh before scan.");
+        }
+    }
+
+    @Override
+    public void onBalanceUpdated(MoneySnapshot snapshot) {
+        if (!enabled || !waitingForBalance) {
+            return;
+        }
+
+        waitingForBalance = false;
+        AutobuyConfig config = configManager.getCurrentConfig();
+        pendingScanTasks.clear();
+        pendingScanTasks.addAll(buildScanTasks(config.buyRules(), config.scanPageLimit()));
+        scanCycleActive = !pendingScanTasks.isEmpty();
+        logger.info(
+            "AUTOBUY_LOOP",
+            "Prepared autobuy scan cycle. interval=" + config.scanIntervalSeconds()
+                + "s, pageLimit=" + config.scanPageLimit()
+                + ", balance=$" + snapshot.amount()
+                + ", tasks=" + pendingScanTasks.size()
+        );
+
+        if (!scanCycleActive) {
+            scheduleNextScan();
+            logger.info("AUTOBUY_LOOP", "Skipped scan cycle because there are no buy rules.");
+            return;
+        }
+
+        startNextQueuedScan();
+    }
+
+    @Override
+    public void onBalanceRefreshFailed(String reason) {
+        if (!enabled || !waitingForBalance) {
+            return;
+        }
+
+        waitingForBalance = false;
+        scheduleNextScan();
+        logger.info("AUTOBUY_LOOP", "Balance refresh failed before scan: " + reason + ".");
+    }
+
+    @Override
+    public AuctionPageDecision onPageScanned(int syncId, int currentPage, int totalPages, List<AuctionLot> pageLots) {
+        if (!enabled) {
+            return AuctionPageDecision.CONTINUE;
+        }
+
+        MoneySnapshot balance = balanceService.getLastKnownBalance().orElse(null);
+        if (balance == null) {
+            return AuctionPageDecision.CONTINUE;
+        }
+
+        for (AuctionLot lot : pageLots) {
+            BuyDecision decision = ruleMatcher.match(lot, configManager.getCurrentConfig().buyRules());
+            logLotScanResult(lot, decision, balance);
+            if (!decision.approved()) {
+                continue;
+            }
+
+            if (balance.amount() < lot.totalPrice()) {
+                logger.info(
+                    "AUTOBUY_LOOP",
+                    "Matched lot at slot " + lot.slotIndex() + " but skipped because balance $" + balance.amount()
+                        + " is below total price $" + lot.totalPrice() + "."
+                );
+                continue;
+            }
+
+            gateway.clickSlot(syncId, lot.slotIndex(), 0, SlotActionType.QUICK_MOVE);
+            purchaseSuppressionTicks = PURCHASE_SUPPRESSION_TICKS;
+            suppressedSyncId = syncId;
+            logger.info(
+                "AUTOBUY_LOOP",
+                "Bought matched lot on page " + currentPage + "/" + totalPages
+                    + ", slot=" + lot.slotIndex()
+                    + ", rule=" + decision.matchedRule().id()
+                    + ", totalPrice=$" + lot.totalPrice()
+                    + ", unitPrice=$" + lot.unitPrice()
+                    + ", continuing_scan=true"
+            );
+            return AuctionPageDecision.CONTINUE;
+        }
+
+        return AuctionPageDecision.CONTINUE;
+    }
+
+    @Override
+    public void onCloseScreen(int syncId) {
+        // Keep suppression alive through close/reopen transitions in the purchase flow.
+    }
+
+    @Override
+    public boolean shouldSuppressScreen(Screen screen) {
+        return purchaseSuppressionTicks > 0
+            && screen != null;
+    }
+
+    private void scheduleNextScan() {
+        ticksUntilNextScan = configManager.getCurrentConfig().scanIntervalSeconds() * TICKS_PER_SECOND;
+    }
+
+    private void startNextQueuedScan() {
+        ScanTask nextTask = pendingScanTasks.poll();
+        if (nextTask == null) {
+            return;
+        }
+
+        logger.info("AUTOBUY_LOOP", "Starting headless scan task: " + nextTask.description + " via /" + nextTask.command);
+        scanController.startScanCommand(nextTask.command, nextTask.maxPages);
+    }
+
+    private void logLotScanResult(AuctionLot lot, BuyDecision decision, MoneySnapshot balance) {
+        AutobuyScanLogMode logMode = configManager.getCurrentConfig().scanLogMode();
+        if (logMode == AutobuyScanLogMode.MATCHED_ONLY && !decision.approved()) {
+            return;
+        }
+
+        StringBuilder message = new StringBuilder()
+            .append("minecraft_id=").append(lot.minecraftId())
+            .append(", count=").append(lot.count())
+            .append(", price=").append(lot.totalPrice())
+            .append(", unit_price=").append(lot.unitPrice())
+            .append(", matched=").append(decision.approved());
+
+        if (decision.approved()) {
+            message.append(", rule=").append(decision.matchedRule().id());
+            if (balance.amount() < lot.totalPrice()) {
+                message.append(", reason=insufficient_balance");
+            } else {
+                message.append(", reason=matched");
+            }
+        } else {
+            message.append(", reason=").append(decision.reason());
+        }
+
+        logger.info("AUTOBUY_SCAN_RESULT", message.toString());
+    }
+
+    private List<ScanTask> buildScanTasks(List<BuyRule> rules, int pageLimit) {
+        Set<String> uniqueQueries = new LinkedHashSet<>();
+        boolean requiresGenericScan = false;
+
+        for (BuyRule rule : rules) {
+            if (!rule.enabled()) {
+                continue;
+            }
+
+            String searchQuery = resolveSearchQuery(rule);
+            if (searchQuery != null) {
+                uniqueQueries.add(searchQuery);
+            } else {
+                requiresGenericScan = true;
+            }
+        }
+
+        Queue<ScanTask> tasks = new ArrayDeque<>();
+        for (String query : uniqueQueries) {
+            tasks.add(new ScanTask("ah search " + query, "search \"" + query + "\"", pageLimit));
+        }
+
+        if (requiresGenericScan) {
+            tasks.add(new ScanTask("ah", "generic auction scan", pageLimit));
+        }
+
+        return List.copyOf(tasks);
+    }
+
+    private String resolveSearchQuery(BuyRule rule) {
+        if (rule.displayNameEquals() != null && !rule.displayNameEquals().isBlank()) {
+            return rule.displayNameEquals().trim();
+        }
+
+        if (rule.displayNameContains() != null && !rule.displayNameContains().isBlank()) {
+            return rule.displayNameContains().trim();
+        }
+
+        return null;
+    }
+
+    private record ScanTask(String command, String description, int maxPages) {
+    }
+}
