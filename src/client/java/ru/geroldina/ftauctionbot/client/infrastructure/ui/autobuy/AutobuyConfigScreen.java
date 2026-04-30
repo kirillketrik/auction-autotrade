@@ -158,18 +158,7 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> {
         header.padding(Insets.of(8));
         header.gap(8);
 
-        FlowLayout metaRow = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
-        metaRow.gap(6);
-        metaRow.child(sectionTag("АВТОБАЙ"));
-        metaRow.child(sectionTag(dirty ? "ЧЕРНОВИК" : "СИНХР."));
-        metaRow.child(sectionTag(autobuyLoopController.isEnabled() ? "ЗАПУЩЕН" : "ОСТАНОВЛЕН"));
-        metaRow.child(horizontalSpacer());
-        metaRow.child(mutedLabel("F7 или /ftab gui"));
-        header.child(metaRow);
-
         FlowLayout titleRow = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
-        titleRow.child(primaryLabel("Доступные конфигурации"));
-        titleRow.child(horizontalSpacer());
         saveButton = actionButton("Сохранить", button -> saveDraft(), true);
         titleRow.child(saveButton);
         titleRow.child(actionButton("Загрузить", button -> reloadFromFile(), false));
@@ -177,16 +166,6 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> {
         titleRow.child(actionButton(autobuyLoopController.isEnabled() ? "Стоп" : "Старт", button -> toggleAutobuy(), false));
         titleRow.child(actionButton("Закрыть", button -> close(), false));
         header.child(titleRow);
-
-        FlowLayout summaryRow = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
-        summaryRow.gap(6);
-        summaryRow.child(statPill("Правила", String.valueOf(draft.buyRules.size())));
-        summaryRow.child(statPill("Задержка", draft.pageSwitchDelayMs + " мс"));
-        summaryRow.child(statPill("Логи", localizeLogMode(draft.scanLogMode)));
-        summaryRow.child(horizontalSpacer());
-        summaryRow.child(Components.label(uiText(buildRuntimeStatus()))
-            .<LabelComponent>configure(label -> label.color(Color.ofRgb(validationErrors.isEmpty() ? TEXT_SUCCESS : TEXT_WARNING))));
-        header.child(summaryRow);
 
         if (!statusMessage.isBlank()) {
             header.child(infoStripe(statusMessage, validationErrors.isEmpty() ? TEXT_WARNING : TEXT_DANGER));
@@ -221,7 +200,6 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> {
         body.gap(8);
         body.child(buildRuleListPanel());
         body.child(buildEditorPanel());
-        body.child(buildInfoPanel());
         return body;
     }
 
@@ -232,7 +210,6 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> {
         outer.gap(8);
 
         outer.child(primaryLabel("Конфигурации"));
-        outer.child(mutedLabel("Плотный список правил с иконками и статусом"));
         outer.child(actionButton("Создать", button -> createRule(), true));
 
         FlowLayout ruleList = Containers.verticalFlow(Sizing.fill(), Sizing.content());
@@ -287,72 +264,38 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> {
         panel.padding(Insets.of(8));
         panel.gap(6);
         panel.child(primaryLabel("Редактор"));
-        panel.child(mutedLabel("Изменение параметров сканирования и выбранного правила"));
         editorScroll = styledVerticalScroll(Sizing.fill(), Sizing.fill(), editorContent, editorScrollProgress);
         panel.child(editorScroll);
-        return panel;
-    }
-
-    private ParentComponent buildInfoPanel() {
-        FlowLayout panel = Containers.verticalFlow(Sizing.fixed(INFO_PANEL_WIDTH), Sizing.fill());
-        panel.surface(Surface.flat(PANEL_BACKGROUND).and(Surface.outline(PANEL_OUTLINE)));
-        panel.padding(Insets.of(8));
-        panel.gap(8);
-
-        panel.child(primaryLabel("Информация"));
-        panel.child(mutedLabel("Метаданные и быстрые действия"));
-        panel.child(buildInfoCard());
-        panel.child(buildInfoActions());
-        if (!validationErrors.isEmpty()) {
-            panel.child(buildValidationPreview());
-        }
         return panel;
     }
 
     private ParentComponent buildGlobalSettingsCard() {
         FlowLayout card = card("Параметры конфигурации", "Общие настройки для всего набора правил.");
 
-        FlowLayout stats = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
-        stats.gap(6);
-        stats.child(statPill("Интервал", draft.scanIntervalSeconds + " с"));
-        stats.child(statPill("Страниц", String.valueOf(draft.scanPageLimit)));
-        stats.child(statPill("Смена", draft.pageSwitchDelayMs + " мс"));
-        card.child(stats);
+        FlowLayout topRow = Containers.verticalFlow(Sizing.fill(), Sizing.content());
+        card.gap(6);
+        card.child(integerField("Интервал сканирования, сек", draft.scanIntervalSeconds, value -> draft.scanIntervalSeconds = clampPositive(value, 30)));
+        card.child(integerField("Лимит страниц", draft.scanPageLimit, value -> draft.scanPageLimit = clampPositive(value, 10)));
 
-        FlowLayout topRow = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
-        topRow.gap(6);
-        topRow.child(halfWidth(integerField("Интервал сканирования, сек", draft.scanIntervalSeconds, value -> draft.scanIntervalSeconds = clampPositive(value, 30))));
-        topRow.child(halfWidth(integerField("Лимит страниц", draft.scanPageLimit, value -> draft.scanPageLimit = clampPositive(value, 10))));
-        card.child(topRow);
-
-        FlowLayout bottomRow = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
-        bottomRow.gap(6);
-        bottomRow.child(halfWidth(integerField("Задержка смены страниц, мс", draft.pageSwitchDelayMs, value -> draft.pageSwitchDelayMs = clampPositive(value, 200))));
-        bottomRow.child(halfWidth(cycleField("Режим логов", localizeLogMode(draft.scanLogMode), () -> {
+        card.gap(6);
+        card.child(integerField("Задержка смены страниц, мс", draft.pageSwitchDelayMs, value -> draft.pageSwitchDelayMs = clampPositive(value, 200)));
+        card.child(cycleField("Режим логов", localizeLogMode(draft.scanLogMode), () -> {
             draft.scanLogMode = draft.scanLogMode == AutobuyScanLogMode.ALL
                 ? AutobuyScanLogMode.MATCHED_ONLY
                 : AutobuyScanLogMode.ALL;
             markDirty("Изменён режим логирования.");
             rebuildUi();
-        })));
-        card.child(bottomRow);
+        }));
         return card;
     }
 
     private ParentComponent buildSelectedRuleCard(AutobuyConfigDraft.BuyRuleDraft rule) {
         FlowLayout card = card("Редактор правила", "Центральная область настройки выбранного правила.");
 
-        FlowLayout hero = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
-        hero.gap(6);
-        hero.child(statPill("Правило", displayRuleTitle(rule, selectedRuleIndex)));
-        hero.child(statPill("Условий", String.valueOf(rule.conditions.size())));
-        hero.child(statPill("Статус", rule.enabled ? "Активно" : "Выключено"));
-        card.child(hero);
-
         FlowLayout fieldRow = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
-        fieldRow.gap(6);
-        fieldRow.child(halfWidth(textField("Идентификатор", rule.id, value -> rule.id = value)));
-        fieldRow.child(halfWidth(textField("Название", rule.name, value -> rule.name = value)));
+        card.gap(6);
+        card.child(textField("Идентификатор", rule.id, value -> rule.id = value));
+        card.child(textField("Название", rule.name, value -> rule.name = value));
         card.child(fieldRow);
 
         CheckboxComponent enabledCheckbox = Components.checkbox(uiText("Включено"));
@@ -939,14 +882,6 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> {
 
     private static String normalizeSearch(String value) {
         return value == null ? "" : value.toLowerCase(Locale.ROOT).trim();
-    }
-
-    private String buildRuntimeStatus() {
-        return "Правил: " + draft.buyRules.size()
-            + " | Автобай: " + (autobuyLoopController.isEnabled() ? "работает" : "остановлен")
-            + " | Смена страниц: " + draft.pageSwitchDelayMs + " мс"
-            + " | Логи: " + localizeLogMode(draft.scanLogMode)
-            + " | " + (validationErrors.isEmpty() ? "готово к сохранению" : ("ошибок: " + validationErrors.size()));
     }
 
     private ParentComponent buildInfoCard() {

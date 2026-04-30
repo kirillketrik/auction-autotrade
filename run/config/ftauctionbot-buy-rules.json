@@ -1,8 +1,8 @@
 {
   "scanIntervalSeconds": 15,
   "scanPageLimit": 10,
-  "pageSwitchDelayMs": 500,
-  "scanLogMode": "ALL",
+  "pageSwitchDelayMs": 5000,
+  "scanLogMode": "MATCHED_ONLY",
   "buyRules": [
     {
       "id": "rule_2",
@@ -33,10 +33,6 @@
           "value": 600000
         },
         {
-          "type": "min_count",
-          "value": 1
-        },
-        {
           "type": "required_potion_effects",
           "value": [
             {
@@ -55,6 +51,10 @@
               "durationSeconds": 0
             }
           ]
+        },
+        {
+          "type": "min_count",
+          "value": 1
         }
       ]
     },
