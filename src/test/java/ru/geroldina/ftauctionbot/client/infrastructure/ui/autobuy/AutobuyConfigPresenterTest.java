@@ -2,12 +2,15 @@ package ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy;
 
 import org.junit.jupiter.api.Test;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyConfigManager;
+import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryManager;
+import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryRepository;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyRuleRepository;
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyRule;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.model.PurchaseHistoryEntry;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -112,6 +115,18 @@ class AutobuyConfigPresenterTest {
         assertTrue(context.session.statusMessage().contains("остановлен"));
     }
 
+    @Test
+    void selectHistoryTabLoadsPurchaseHistory() {
+        TestContext context = new TestContext(sampleConfig());
+        context.presenter.initialize();
+
+        context.historyRepository.entries = List.of(new PurchaseHistoryEntry("minecraft:stone", "Stone", 3, 1200, 123456789L));
+        context.presenter.selectTab(AutobuyScreenTab.PURCHASE_HISTORY);
+
+        assertEquals(AutobuyScreenTab.PURCHASE_HISTORY, context.session.activeTab());
+        assertEquals(1, context.session.purchaseHistoryEntries().size());
+    }
+
     private static AutobuyConfig sampleConfig() {
         return new AutobuyConfig(
             30,
@@ -127,6 +142,7 @@ class AutobuyConfigPresenterTest {
         private final AtomicInteger closeCalls = new AtomicInteger();
         private final TestLoopControl loopControl = new TestLoopControl();
         private final AutobuyConfigManager configManager;
+        private final InMemoryPurchaseHistoryRepository historyRepository = new InMemoryPurchaseHistoryRepository();
         private final AutobuyConfigSession session = new AutobuyConfigSession(new AutobuyConfigValidator());
         private final AutobuyConfigPresenter presenter;
 
@@ -137,6 +153,7 @@ class AutobuyConfigPresenterTest {
             this.presenter = new AutobuyConfigPresenter(
                 configManager,
                 loopControl,
+                new PurchaseHistoryManager(historyRepository, new NoopLogger()),
                 session,
                 new AutobuyPickerCatalog(),
                 rebuildCalls::incrementAndGet,
@@ -189,6 +206,20 @@ class AutobuyConfigPresenterTest {
 
         @Override
         public void block(String category, List<String> lines) {
+        }
+    }
+
+    private static final class InMemoryPurchaseHistoryRepository implements PurchaseHistoryRepository {
+        private List<PurchaseHistoryEntry> entries = List.of();
+
+        @Override
+        public List<PurchaseHistoryEntry> load() {
+            return entries;
+        }
+
+        @Override
+        public void save(List<PurchaseHistoryEntry> entries) {
+            this.entries = entries;
         }
     }
 }

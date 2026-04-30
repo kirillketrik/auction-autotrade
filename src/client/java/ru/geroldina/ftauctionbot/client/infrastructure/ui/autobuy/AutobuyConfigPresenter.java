@@ -1,12 +1,14 @@
 package ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy;
 
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyConfigManager;
+import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryManager;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
 
 final class AutobuyConfigPresenter {
     private final AutobuyConfigManager configManager;
     private final AutobuyLoopControl autobuyLoopControl;
+    private final PurchaseHistoryManager purchaseHistoryManager;
     private final AutobuyConfigSession session;
     private final AutobuyPickerCatalog pickerCatalog;
     private final Runnable rebuildUi;
@@ -15,6 +17,7 @@ final class AutobuyConfigPresenter {
     AutobuyConfigPresenter(
         AutobuyConfigManager configManager,
         AutobuyLoopControl autobuyLoopControl,
+        PurchaseHistoryManager purchaseHistoryManager,
         AutobuyConfigSession session,
         AutobuyPickerCatalog pickerCatalog,
         Runnable rebuildUi,
@@ -22,6 +25,7 @@ final class AutobuyConfigPresenter {
     ) {
         this.configManager = configManager;
         this.autobuyLoopControl = autobuyLoopControl;
+        this.purchaseHistoryManager = purchaseHistoryManager;
         this.session = session;
         this.pickerCatalog = pickerCatalog;
         this.rebuildUi = rebuildUi;
@@ -30,6 +34,7 @@ final class AutobuyConfigPresenter {
 
     void initialize() {
         session.reset(configManager.getCurrentConfig(), "Загружена активная конфигурация.");
+        session.purchaseHistoryEntries(purchaseHistoryManager.load());
     }
 
     void requestClose() {
@@ -106,6 +111,20 @@ final class AutobuyConfigPresenter {
 
     boolean isAutobuyEnabled() {
         return autobuyLoopControl.isEnabled();
+    }
+
+    void selectTab(AutobuyScreenTab tab) {
+        session.activeTab(tab);
+        if (tab == AutobuyScreenTab.PURCHASE_HISTORY) {
+            session.purchaseHistoryEntries(purchaseHistoryManager.load());
+        }
+        rebuildUi.run();
+    }
+
+    void reloadPurchaseHistory() {
+        session.purchaseHistoryEntries(purchaseHistoryManager.load());
+        session.statusMessage("История покупок обновлена.");
+        rebuildUi.run();
     }
 
     void openRuleEditor(int ruleIndex) {

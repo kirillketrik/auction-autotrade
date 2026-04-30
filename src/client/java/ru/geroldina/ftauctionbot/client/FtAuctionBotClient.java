@@ -10,6 +10,7 @@ import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyConfigManager
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyExecutor;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyLoopController;
 import ru.geroldina.ftauctionbot.client.application.autobuy.CurrentAuctionViewTracker;
+import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryManager;
 import ru.geroldina.ftauctionbot.client.application.balance.BalanceTracker;
 import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanCoordinator;
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
@@ -28,6 +29,7 @@ import ru.geroldina.ftauctionbot.client.infrastructure.minecraft.MinecraftAuctio
 import ru.geroldina.ftauctionbot.client.infrastructure.minecraft.MinecraftAuctionEventBridge;
 import ru.geroldina.ftauctionbot.client.infrastructure.config.JsonAutobuyRuleRepository;
 import ru.geroldina.ftauctionbot.client.infrastructure.persistence.JsonAuctionScanResultRepository;
+import ru.geroldina.ftauctionbot.client.infrastructure.persistence.JsonPurchaseHistoryRepository;
 import ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy.AutobuyConfigScreen;
 
 public final class FtAuctionBotClient implements ClientModInitializer {
@@ -38,6 +40,7 @@ public final class FtAuctionBotClient implements ClientModInitializer {
     private AuctionScanCoordinator coordinator;
     private AutobuyConfigManager configManager;
     private AutobuyLoopController autobuyLoopController;
+    private PurchaseHistoryManager purchaseHistoryManager;
 
     @Override
     public void onInitializeClient() {
@@ -63,6 +66,8 @@ public final class FtAuctionBotClient implements ClientModInitializer {
         CurrentAuctionViewTracker auctionViewTracker = new CurrentAuctionViewTracker(screenAnalyzer, lotExtractor);
         configManager = new AutobuyConfigManager(new JsonAutobuyRuleRepository(), logger);
         configManager.loadStartup();
+        purchaseHistoryManager = new PurchaseHistoryManager(new JsonPurchaseHistoryRepository(), logger);
+        purchaseHistoryManager.load();
         RelevantPacketLogger packetLogger = new RelevantPacketLogger(logger);
         AutobuyExecutor autobuyExecutor = new AutobuyExecutor(
             gateway,
@@ -70,6 +75,7 @@ public final class FtAuctionBotClient implements ClientModInitializer {
             balanceTracker,
             configManager,
             new DefaultAutobuyRuleMatcher(),
+            purchaseHistoryManager,
             logger
         );
         autobuyLoopController = new AutobuyLoopController(
@@ -78,6 +84,7 @@ public final class FtAuctionBotClient implements ClientModInitializer {
             balanceTracker,
             configManager,
             new DefaultAutobuyRuleMatcher(),
+            purchaseHistoryManager,
             logger
         );
 
@@ -92,7 +99,7 @@ public final class FtAuctionBotClient implements ClientModInitializer {
             packetLogger,
             autobuyExecutor,
             autobuyLoopController,
-            () -> client.execute(() -> client.setScreen(new AutobuyConfigScreen(configManager, autobuyLoopController)))
+            () -> client.execute(() -> client.setScreen(new AutobuyConfigScreen(configManager, autobuyLoopController, purchaseHistoryManager)))
         );
 
         startScanKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
@@ -114,7 +121,8 @@ public final class FtAuctionBotClient implements ClientModInitializer {
             coordinator.startScan(DEFAULT_SCAN_PAGE_LIMIT);
         }
         while (openAutobuyConfigKey.wasPressed()) {
-            client.execute(() -> client.setScreen(new AutobuyConfigScreen(configManager, autobuyLoopController)));
+            purchaseHistoryManager.load();
+            client.execute(() -> client.setScreen(new AutobuyConfigScreen(configManager, autobuyLoopController, purchaseHistoryManager)));
         }
 
         MinecraftAuctionEventBridge.onClientTick();

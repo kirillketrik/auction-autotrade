@@ -301,7 +301,7 @@ final class AutobuyRuleEditorView {
             return true;
         });
 
-        button.child(buildPickerPreviewIcon(previewEntry));
+        button.child(AutobuyUiComponents.pickerPreviewIcon(previewEntry));
 
         FlowLayout texts = Containers.verticalFlow(Sizing.expand(), Sizing.content());
         String title = previewEntry != null ? previewEntry.name().getString() : (AutobuyUiTextSupport.isBlank(fallbackLabel) ? emptyLabel : fallbackLabel);
@@ -336,33 +336,4 @@ final class AutobuyRuleEditorView {
         return button;
     }
 
-    private Component buildPickerPreviewIcon(SearchPickerEntry previewEntry) {
-        FlowLayout icon = Containers.horizontalFlow(Sizing.content(), Sizing.content());
-        icon.gap(3);
-        icon.alignment(HorizontalAlignment.CENTER, VerticalAlignment.CENTER);
-
-        if (previewEntry != null && previewEntry.itemStack() != null) {
-            icon.child(Components.item(previewEntry.itemStack()).margins(Insets.right(2)));
-            return icon;
-        }
-
-        if (previewEntry != null && previewEntry.statusEffect() != null) {
-            icon.child(Components.sprite(net.minecraft.client.MinecraftClient.getInstance().getStatusEffectSpriteManager().getSprite(previewEntry.statusEffect()))
-                .sizing(Sizing.fixed(18), Sizing.fixed(18)));
-            return icon;
-        }
-
-        FlowLayout badge = Containers.verticalFlow(Sizing.fixed(18), Sizing.fixed(18));
-        int badgeColor = previewEntry != null && previewEntry.badgeText() != null && !previewEntry.badgeText().isBlank()
-            ? previewEntry.badgeColor()
-            : AutobuyUiComponents.BUTTON_SELECTED;
-        String badgeText = previewEntry != null && previewEntry.badgeText() != null && !previewEntry.badgeText().isBlank()
-            ? previewEntry.badgeText()
-            : "?";
-        badge.surface(Surface.flat(badgeColor).and(Surface.outline(0xFF101418)));
-        badge.alignment(HorizontalAlignment.CENTER, VerticalAlignment.CENTER);
-        badge.child(Components.label(AutobuyUiTextSupport.uiText(badgeText)).<LabelComponent>configure(label -> label.color(Color.ofRgb(0xFFFFFFFF))));
-        icon.child(badge);
-        return icon;
-    }
 }

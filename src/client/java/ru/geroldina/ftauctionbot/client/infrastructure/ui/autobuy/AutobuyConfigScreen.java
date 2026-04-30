@@ -14,6 +14,7 @@ import net.minecraft.client.MinecraftClient;
 import org.jetbrains.annotations.NotNull;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyConfigManager;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyLoopController;
+import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryManager;
 
 public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implements AutobuyScreenViewHost {
     private final AutobuyConfigSession session;
@@ -22,14 +23,16 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
     private final AutobuyConfigHeaderView headerView = new AutobuyConfigHeaderView();
     private final AutobuyRuleListView ruleListView = new AutobuyRuleListView();
     private final AutobuyRuleEditorView ruleEditorView = new AutobuyRuleEditorView();
+    private final AutobuyPurchaseHistoryView purchaseHistoryView = new AutobuyPurchaseHistoryView();
     private final AutobuyPickerOverlayView pickerOverlayView = new AutobuyPickerOverlayView();
 
     private io.wispforest.owo.ui.component.ButtonComponent saveButton;
     private UiScrollContainer<FlowLayout> ruleListScroll;
     private UiScrollContainer<FlowLayout> editorScroll;
+    private UiScrollContainer<FlowLayout> historyScroll;
     private UiScrollContainer<FlowLayout> pickerResultsScroll;
 
-    public AutobuyConfigScreen(AutobuyConfigManager configManager, AutobuyLoopController autobuyLoopController) {
+    public AutobuyConfigScreen(AutobuyConfigManager configManager, AutobuyLoopController autobuyLoopController, PurchaseHistoryManager purchaseHistoryManager) {
         super(AutobuyUiTextSupport.uiText("Конфигурация автобая"));
         AutobuyConfigValidator validator = new AutobuyConfigValidator();
         this.session = new AutobuyConfigSession(validator);
@@ -37,6 +40,7 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
         this.presenter = new AutobuyConfigPresenter(
             configManager,
             AutobuyLoopControl.from(autobuyLoopController),
+            purchaseHistoryManager,
             session,
             pickerCatalog,
             this::rebuildUi,
@@ -96,6 +100,11 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
     }
 
     @Override
+    public void setHistoryScroll(UiScrollContainer<FlowLayout> scroll) {
+        this.historyScroll = scroll;
+    }
+
+    @Override
     public void setPickerResultsScroll(UiScrollContainer<FlowLayout> scroll) {
         this.pickerResultsScroll = scroll;
     }
@@ -133,6 +142,12 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
     }
 
     private FlowLayout buildBody() {
+        if (session.activeTab() == AutobuyScreenTab.PURCHASE_HISTORY) {
+            FlowLayout body = Containers.verticalFlow(Sizing.fill(), Sizing.expand());
+            body.child(purchaseHistoryView.build(this));
+            return body;
+        }
+
         FlowLayout body = Containers.horizontalFlow(Sizing.fill(), Sizing.expand());
         body.gap(8);
         body.child(ruleListView.build(this));
@@ -146,6 +161,9 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
         }
         if (editorScroll != null) {
             session.editorScrollProgress(editorScroll.progress());
+        }
+        if (historyScroll != null) {
+            session.historyScrollProgress(historyScroll.progress());
         }
         if (pickerResultsScroll != null) {
             session.pickerResultsScrollProgress(pickerResultsScroll.progress());

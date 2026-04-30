@@ -1,6 +1,7 @@
 package ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy;
 
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.model.PurchaseHistoryEntry;
 
 import java.util.List;
 
@@ -13,9 +14,12 @@ final class AutobuyConfigSession {
     private boolean confirmClosePending;
     private String statusMessage = "";
     private List<String> validationErrors = List.of();
+    private AutobuyScreenTab activeTab = AutobuyScreenTab.CONFIG;
+    private List<PurchaseHistoryEntry> purchaseHistoryEntries = List.of();
     private SearchPickerState activePicker;
     private double ruleListScrollProgress;
     private double editorScrollProgress;
+    private double historyScrollProgress;
     private double pickerResultsScrollProgress;
 
     AutobuyConfigSession(AutobuyConfigValidator validator) {
@@ -99,6 +103,22 @@ final class AutobuyConfigSession {
         this.activePicker = activePicker;
     }
 
+    AutobuyScreenTab activeTab() {
+        return activeTab;
+    }
+
+    void activeTab(AutobuyScreenTab activeTab) {
+        this.activeTab = activeTab;
+    }
+
+    List<PurchaseHistoryEntry> purchaseHistoryEntries() {
+        return purchaseHistoryEntries;
+    }
+
+    void purchaseHistoryEntries(List<PurchaseHistoryEntry> purchaseHistoryEntries) {
+        this.purchaseHistoryEntries = purchaseHistoryEntries;
+    }
+
     double ruleListScrollProgress() {
         return ruleListScrollProgress;
     }
@@ -113,6 +133,14 @@ final class AutobuyConfigSession {
 
     void editorScrollProgress(double editorScrollProgress) {
         this.editorScrollProgress = editorScrollProgress;
+    }
+
+    double historyScrollProgress() {
+        return historyScrollProgress;
+    }
+
+    void historyScrollProgress(double historyScrollProgress) {
+        this.historyScrollProgress = historyScrollProgress;
     }
 
     double pickerResultsScrollProgress() {

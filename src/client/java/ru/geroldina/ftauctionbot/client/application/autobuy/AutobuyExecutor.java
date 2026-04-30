@@ -16,6 +16,7 @@ public final class AutobuyExecutor implements BalanceObserver {
     private final BalanceService balanceService;
     private final AutobuyConfigManager configManager;
     private final AutobuyRuleMatcher ruleMatcher;
+    private final PurchaseHistoryManager purchaseHistoryManager;
     private final ScanLogger logger;
 
     private PendingBuy pendingBuy;
@@ -26,6 +27,7 @@ public final class AutobuyExecutor implements BalanceObserver {
         BalanceService balanceService,
         AutobuyConfigManager configManager,
         AutobuyRuleMatcher ruleMatcher,
+        PurchaseHistoryManager purchaseHistoryManager,
         ScanLogger logger
     ) {
         this.gateway = gateway;
@@ -33,6 +35,7 @@ public final class AutobuyExecutor implements BalanceObserver {
         this.balanceService = balanceService;
         this.configManager = configManager;
         this.ruleMatcher = ruleMatcher;
+        this.purchaseHistoryManager = purchaseHistoryManager;
         this.logger = logger;
         this.balanceService.addObserver(this);
     }
@@ -84,6 +87,7 @@ public final class AutobuyExecutor implements BalanceObserver {
         }
 
         gateway.clickSlot(candidate.syncId(), candidate.slot(), 0, SlotActionType.QUICK_MOVE);
+        purchaseHistoryManager.recordPurchase(candidate.auctionLot());
         logger.info(
             "AUTOBUY",
             "Triggered buy attempt for slot " + candidate.slot()

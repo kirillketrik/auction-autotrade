@@ -49,6 +49,7 @@ class AutobuyLoopControllerTest {
             balanceService,
             configManager,
             new DefaultAutobuyRuleMatcher(),
+            new PurchaseHistoryManager(new InMemoryPurchaseHistoryRepository(), new FakeLogger()),
             new FakeLogger()
         );
 
@@ -81,6 +82,7 @@ class AutobuyLoopControllerTest {
             balanceService,
             configManager,
             new DefaultAutobuyRuleMatcher(),
+            new PurchaseHistoryManager(new InMemoryPurchaseHistoryRepository(), new FakeLogger()),
             new FakeLogger()
         );
         controller.start();
@@ -121,6 +123,7 @@ class AutobuyLoopControllerTest {
             balanceService,
             configManager,
             new DefaultAutobuyRuleMatcher(),
+            new PurchaseHistoryManager(new InMemoryPurchaseHistoryRepository(), new FakeLogger()),
             new FakeLogger()
         );
 
@@ -239,6 +242,17 @@ class AutobuyLoopControllerTest {
 
         @Override
         public void block(String category, List<String> lines) {
+        }
+    }
+
+    private static final class InMemoryPurchaseHistoryRepository implements PurchaseHistoryRepository {
+        @Override
+        public List<ru.geroldina.ftauctionbot.client.domain.autobuy.model.PurchaseHistoryEntry> load() {
+            return List.of();
+        }
+
+        @Override
+        public void save(List<ru.geroldina.ftauctionbot.client.domain.autobuy.model.PurchaseHistoryEntry> entries) {
         }
     }
 

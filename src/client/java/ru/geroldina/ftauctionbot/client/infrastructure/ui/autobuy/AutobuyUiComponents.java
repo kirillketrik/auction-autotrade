@@ -16,6 +16,7 @@ import io.wispforest.owo.ui.core.ParentComponent;
 import io.wispforest.owo.ui.core.Sizing;
 import io.wispforest.owo.ui.core.Surface;
 import io.wispforest.owo.ui.core.VerticalAlignment;
+import net.minecraft.client.MinecraftClient;
 
 import java.util.function.Consumer;
 
@@ -182,5 +183,35 @@ final class AutobuyUiComponents {
         scroll.scrollbarThiccness(4);
         scroll.restoreProgress(progress);
         return scroll;
+    }
+
+    static Component pickerPreviewIcon(SearchPickerEntry previewEntry) {
+        FlowLayout icon = Containers.horizontalFlow(Sizing.content(), Sizing.content());
+        icon.gap(3);
+        icon.alignment(HorizontalAlignment.CENTER, VerticalAlignment.CENTER);
+
+        if (previewEntry != null && previewEntry.itemStack() != null) {
+            icon.child(Components.item(previewEntry.itemStack()).margins(Insets.right(2)));
+            return icon;
+        }
+
+        if (previewEntry != null && previewEntry.statusEffect() != null) {
+            icon.child(Components.sprite(MinecraftClient.getInstance().getStatusEffectSpriteManager().getSprite(previewEntry.statusEffect()))
+                .sizing(Sizing.fixed(18), Sizing.fixed(18)));
+            return icon;
+        }
+
+        FlowLayout badge = Containers.verticalFlow(Sizing.fixed(18), Sizing.fixed(18));
+        int badgeColor = previewEntry != null && previewEntry.badgeText() != null && !previewEntry.badgeText().isBlank()
+            ? previewEntry.badgeColor()
+            : BUTTON_SELECTED;
+        String badgeText = previewEntry != null && previewEntry.badgeText() != null && !previewEntry.badgeText().isBlank()
+            ? previewEntry.badgeText()
+            : "?";
+        badge.surface(Surface.flat(badgeColor).and(Surface.outline(0xFF101418)));
+        badge.alignment(HorizontalAlignment.CENTER, VerticalAlignment.CENTER);
+        badge.child(Components.label(AutobuyUiTextSupport.uiText(badgeText)).<LabelComponent>configure(label -> label.color(Color.ofRgb(0xFFFFFFFF))));
+        icon.child(badge);
+        return icon;
     }
 }

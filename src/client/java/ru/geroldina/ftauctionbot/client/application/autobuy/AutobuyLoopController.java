@@ -35,6 +35,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     private final BalanceService balanceService;
     private final AutobuyConfigManager configManager;
     private final AutobuyRuleMatcher ruleMatcher;
+    private final PurchaseHistoryManager purchaseHistoryManager;
     private final ScanLogger logger;
 
     private boolean enabled;
@@ -53,6 +54,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         BalanceService balanceService,
         AutobuyConfigManager configManager,
         AutobuyRuleMatcher ruleMatcher,
+        PurchaseHistoryManager purchaseHistoryManager,
         ScanLogger logger
     ) {
         this.gateway = gateway;
@@ -60,6 +62,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         this.balanceService = balanceService;
         this.configManager = configManager;
         this.ruleMatcher = ruleMatcher;
+        this.purchaseHistoryManager = purchaseHistoryManager;
         this.logger = logger;
         this.balanceService.addObserver(this);
         this.scanController.addPageObserver(this);
@@ -229,6 +232,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
 
             logPageMatchSummary(currentPage, totalPages, evaluatedLots, matchedLots, pageLots.size());
             gateway.clickSlot(syncId, lot.slotIndex(), 0, SlotActionType.QUICK_MOVE);
+            purchaseHistoryManager.recordPurchase(lot);
             purchaseSuppressionTicks = PURCHASE_SUPPRESSION_TICKS;
             suppressedSyncId = syncId;
             logger.info(

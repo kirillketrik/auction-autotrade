@@ -31,6 +31,20 @@ final class AutobuyConfigHeaderView {
         titleRow.child(AutobuyUiComponents.actionButton("Закрыть", button -> host.presenter().requestClose(), false));
         header.child(titleRow);
 
+        FlowLayout tabRow = Containers.horizontalFlow(Sizing.fill(), Sizing.content());
+        tabRow.gap(6);
+        tabRow.child(AutobuyUiComponents.smallAction(
+            "Правила",
+            button -> host.presenter().selectTab(AutobuyScreenTab.CONFIG),
+            host.session().activeTab() == AutobuyScreenTab.CONFIG
+        ));
+        tabRow.child(AutobuyUiComponents.smallAction(
+            "История покупок",
+            button -> host.presenter().selectTab(AutobuyScreenTab.PURCHASE_HISTORY),
+            host.session().activeTab() == AutobuyScreenTab.PURCHASE_HISTORY
+        ));
+        header.child(tabRow);
+
         if (!session.statusMessage().isBlank()) {
             header.child(AutobuyUiComponents.infoStripe(
                 session.statusMessage(),

@@ -16,5 +16,7 @@ interface AutobuyScreenViewHost {
 
     void setEditorScroll(UiScrollContainer<FlowLayout> scroll);
 
+    void setHistoryScroll(UiScrollContainer<FlowLayout> scroll);
+
     void setPickerResultsScroll(UiScrollContainer<FlowLayout> scroll);
 }

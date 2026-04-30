@@ -39,6 +39,7 @@ class AutobuyExecutorTest {
             balanceService,
             configManager,
             (lot, rules) -> BuyDecision.approved(rules.getFirst()),
+            new PurchaseHistoryManager(new InMemoryPurchaseHistoryRepository(), new FakeLogger()),
             new FakeLogger()
         );
 
@@ -133,6 +134,17 @@ class AutobuyExecutorTest {
 
         @Override
         public void block(String category, List<String> lines) {
+        }
+    }
+
+    private static final class InMemoryPurchaseHistoryRepository implements PurchaseHistoryRepository {
+        @Override
+        public List<ru.geroldina.ftauctionbot.client.domain.autobuy.model.PurchaseHistoryEntry> load() {
+            return List.of();
+        }
+
+        @Override
+        public void save(List<ru.geroldina.ftauctionbot.client.domain.autobuy.model.PurchaseHistoryEntry> entries) {
         }
     }
 }
