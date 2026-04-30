@@ -2,6 +2,15 @@
 
 Файл лежит по пути `run/config/ftauctionbot-buy-rules.json`.
 
+## GUI редактор
+
+Конфиг можно редактировать не только вручную, но и через встроенный GUI:
+
+- `F7` открывает fullscreen editor поверх игры
+- `/ftab gui` открывает тот же экран командой
+
+GUI редактирует тот же самый файл `run/config/ftauctionbot-buy-rules.json`. Кнопка `Save` сохраняет JSON и сразу делает runtime reload, отдельный `/ftab reload` после этого не нужен.
+
 ## Общая структура
 
 ```json
@@ -44,8 +53,7 @@
 ## Поддерживаемые `conditions.type`
 
 - `minecraft_id`
-- `display_name_contains`
-- `display_name_equals`
+- `display_name`
 - `max_total_price`
 - `max_unit_price`
 - `min_count`
@@ -66,21 +74,12 @@
 }
 ```
 
-### `display_name_contains`
+### `display_name`
 
 ```json
 {
-  "type": "display_name_contains",
+  "type": "display_name",
   "value": "Святая вода"
-}
-```
-
-### `display_name_equals`
-
-```json
-{
-  "type": "display_name_equals",
-  "value": "[★] Святая вода"
 }
 ```
 
@@ -198,7 +197,7 @@
           "minecraftId": "minecraft:splash_potion"
         },
         {
-          "type": "display_name_contains",
+          "type": "display_name",
           "value": "Святая вода"
         },
         {
@@ -255,6 +254,8 @@
 
 - Нельзя использовать старый flat-формат правила без массива `conditions`.
 - Нельзя писать `required_enchantment`. Нужно `required_enchantments`.
+- `display_name` используется только для `/ah search` и не участвует в финальном решении о покупке.
+- Старые типы `display_name_contains` и `display_name_equals` автоматически читаются как `display_name`.
 - Для списочных условий значения лежат внутри `value`.
 - Для зелий `level` задается как реальный уровень эффекта из интерфейса игры.
 - Для зелий `durationSeconds` задается в секундах, не в тиках.
