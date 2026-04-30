@@ -17,6 +17,7 @@ import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyDecision;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyRule;
 import ru.geroldina.ftauctionbot.client.domain.balance.MoneySnapshot;
 import ru.geroldina.ftauctionbot.client.infrastructure.minecraft.MinecraftClientEventListener;
+import ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy.AutobuyConfigScreen;
 
 import java.util.ArrayDeque;
 import java.util.LinkedHashSet;
@@ -27,6 +28,7 @@ import java.util.Set;
 public final class AutobuyLoopController implements MinecraftClientEventListener, BalanceObserver, AuctionScanPageObserver {
     private static final int TICKS_PER_SECOND = 20;
     private static final int PURCHASE_SUPPRESSION_TICKS = 40;
+    private static final int NEXT_TASK_START_DELAY_TICKS = 4;
 
     private final AuctionClientGateway gateway;
     private final AuctionScanController scanController;
@@ -42,6 +44,8 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     private int purchaseSuppressionTicks;
     private int suppressedSyncId = -1;
     private final Queue<ScanTask> pendingScanTasks = new ArrayDeque<>();
+    private ScanTask delayedScanTask;
+    private int delayedScanTaskTicks;
 
     public AutobuyLoopController(
         AuctionClientGateway gateway,
@@ -73,6 +77,8 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         purchaseSuppressionTicks = 0;
         suppressedSyncId = -1;
         pendingScanTasks.clear();
+        delayedScanTask = null;
+        delayedScanTaskTicks = 0;
         logger.info("AUTOBUY_LOOP", "Autobuy loop started.");
     }
 
@@ -84,6 +90,8 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         purchaseSuppressionTicks = 0;
         suppressedSyncId = -1;
         pendingScanTasks.clear();
+        delayedScanTask = null;
+        delayedScanTaskTicks = 0;
         logger.info("AUTOBUY_LOOP", "Autobuy loop stopped.");
     }
 
@@ -96,11 +104,26 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
             }
         }
 
+        if (delayedScanTaskTicks > 0) {
+            delayedScanTaskTicks--;
+        }
+
         if (!enabled || !gateway.isReady()) {
             return;
         }
 
         if (waitingForBalance || balanceService.isAwaitingRefresh()) {
+            return;
+        }
+
+        if (delayedScanTask != null) {
+            if (delayedScanTaskTicks > 0) {
+                return;
+            }
+
+            ScanTask task = delayedScanTask;
+            delayedScanTask = null;
+            startScanTask(task);
             return;
         }
 
@@ -140,12 +163,15 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         waitingForBalance = false;
         AutobuyConfig config = configManager.getCurrentConfig();
         pendingScanTasks.clear();
+        delayedScanTask = null;
+        delayedScanTaskTicks = 0;
         pendingScanTasks.addAll(buildScanTasks(config.buyRules(), config.scanPageLimit()));
         scanCycleActive = !pendingScanTasks.isEmpty();
         logger.info(
             "AUTOBUY_LOOP",
             "Prepared autobuy scan cycle. interval=" + config.scanIntervalSeconds()
                 + "s, pageLimit=" + config.scanPageLimit()
+                + ", pageSwitchDelayMs=" + config.pageSwitchDelayMs()
                 + ", balance=$" + snapshot.amount()
                 + ", tasks=" + pendingScanTasks.size()
         );
@@ -229,7 +255,8 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     @Override
     public boolean shouldSuppressScreen(Screen screen) {
         return purchaseSuppressionTicks > 0
-            && screen != null;
+            && screen != null
+            && !(screen instanceof AutobuyConfigScreen);
     }
 
     private void scheduleNextScan() {
@@ -242,8 +269,23 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
             return;
         }
 
-        logger.info("AUTOBUY_LOOP", "Starting headless scan task: " + nextTask.description + " via /" + nextTask.command);
-        scanController.startScanCommand(nextTask.command, nextTask.maxPages);
+        if (gateway.closeActiveHandledScreen()) {
+            delayedScanTask = nextTask;
+            delayedScanTaskTicks = NEXT_TASK_START_DELAY_TICKS;
+            logger.info(
+                "AUTOBUY_LOOP",
+                "Closed active handled screen before next scan task. Delaying " + nextTask.description
+                    + " for " + NEXT_TASK_START_DELAY_TICKS + " ticks."
+            );
+            return;
+        }
+
+        startScanTask(nextTask);
+    }
+
+    private void startScanTask(ScanTask task) {
+        logger.info("AUTOBUY_LOOP", "Starting headless scan task: " + task.description + " via /" + task.command);
+        scanController.startScanCommand(task.command, task.maxPages, configManager.getCurrentConfig().pageSwitchDelayMs());
     }
 
     private void logLotScanResult(AuctionLot lot, BuyDecision decision, MoneySnapshot balance) {

@@ -38,4 +38,19 @@ public final class MinecraftAuctionClientGateway implements AuctionClientGateway
 
         client.interactionManager.clickSlot(syncId, slotId, button, actionType, player);
     }
+
+    @Override
+    public boolean closeActiveHandledScreen() {
+        ClientPlayerEntity player = client.player;
+        if (player == null) {
+            return false;
+        }
+
+        if (client.currentScreen == null || player.currentScreenHandler == player.playerScreenHandler) {
+            return false;
+        }
+
+        player.closeHandledScreen();
+        return true;
+    }
 }

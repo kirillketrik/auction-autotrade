@@ -14,7 +14,7 @@ import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanPageObserver
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.DefaultAutobuyRuleMatcher;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameContainsCondition;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxUnitPriceCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
@@ -36,7 +36,7 @@ class AutobuyLoopControllerTest {
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, AutobuyScanLogMode.MATCHED_ONLY, List.of(
+            () -> new AutobuyConfig(5, 7, 350, AutobuyScanLogMode.MATCHED_ONLY, List.of(
                 BuyRule.of("generic", "Generic", true, new ItemIdCondition("minecraft:stone"))
             )),
             new FakeLogger()
@@ -59,6 +59,7 @@ class AutobuyLoopControllerTest {
         controller.onBalanceUpdated(new MoneySnapshot(10_000_000L, Instant.now()));
         assertEquals(7, scanController.lastStartedMaxPages);
         assertEquals("ah", scanController.lastCommand);
+        assertEquals(350, scanController.lastPageSwitchDelayMs);
     }
 
     @Test
@@ -67,7 +68,7 @@ class AutobuyLoopControllerTest {
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, AutobuyScanLogMode.MATCHED_ONLY, List.of(
+            () -> new AutobuyConfig(5, 7, 200, AutobuyScanLogMode.MATCHED_ONLY, List.of(
                 BuyRule.of("totem", "Totem", true, new ItemIdCondition("minecraft:totem_of_undying"), new MaxUnitPriceCondition(7_000_000L))
             )),
             new FakeLogger()
@@ -106,8 +107,8 @@ class AutobuyLoopControllerTest {
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, AutobuyScanLogMode.MATCHED_ONLY, List.of(
-                BuyRule.of("stone", "Stone", true, new ItemIdCondition("minecraft:stone"), new DisplayNameContainsCondition("Булыжник")),
+            () -> new AutobuyConfig(5, 7, 200, AutobuyScanLogMode.MATCHED_ONLY, List.of(
+                BuyRule.of("stone", "Stone", true, new ItemIdCondition("minecraft:stone"), new DisplayNameCondition("Булыжник")),
                 BuyRule.of("generic", "Generic", true, new ItemIdCondition("minecraft:dirt"))
             )),
             new FakeLogger()
@@ -134,6 +135,7 @@ class AutobuyLoopControllerTest {
         private int syncId = -1;
         private int slot = -1;
         private SlotActionType actionType;
+        private boolean closeRequested;
 
         @Override
         public boolean isReady() {
@@ -154,10 +156,17 @@ class AutobuyLoopControllerTest {
             this.slot = slotId;
             this.actionType = actionType;
         }
+
+        @Override
+        public boolean closeActiveHandledScreen() {
+            closeRequested = true;
+            return false;
+        }
     }
 
     private static final class FakeScanController implements AuctionScanController {
         private int lastStartedMaxPages = -1;
+        private int lastPageSwitchDelayMs = -1;
         private String lastCommand;
 
         @Override
@@ -167,9 +176,23 @@ class AutobuyLoopControllerTest {
         }
 
         @Override
+        public void startScan(int maxPages, int pageSwitchDelayMs) {
+            lastStartedMaxPages = maxPages;
+            lastCommand = "ah";
+            lastPageSwitchDelayMs = pageSwitchDelayMs;
+        }
+
+        @Override
         public void startScanCommand(String command, int maxPages) {
             lastCommand = command;
             lastStartedMaxPages = maxPages;
+        }
+
+        @Override
+        public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs) {
+            lastCommand = command;
+            lastStartedMaxPages = maxPages;
+            lastPageSwitchDelayMs = pageSwitchDelayMs;
         }
 
         @Override

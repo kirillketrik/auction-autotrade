@@ -10,4 +10,8 @@ public interface AuctionClientGateway {
     void sendOpenAuctionCommand();
 
     void clickSlot(int syncId, int slotId, int button, SlotActionType actionType);
+
+    default boolean closeActiveHandledScreen() {
+        return false;
+    }
 }

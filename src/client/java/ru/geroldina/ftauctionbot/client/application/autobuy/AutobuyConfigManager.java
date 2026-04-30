@@ -26,6 +26,13 @@ public final class AutobuyConfigManager {
         return currentConfig;
     }
 
+    public AutobuyConfig saveAndReload(AutobuyConfig config) {
+        repository.save(config);
+        currentConfig = repository.load();
+        logger.info("AUTOBUY_CONFIG", "Saved and reloaded autobuy config. Rules: " + currentConfig.buyRules().size() + ".");
+        return currentConfig;
+    }
+
     public AutobuyConfig getCurrentConfig() {
         return currentConfig;
     }

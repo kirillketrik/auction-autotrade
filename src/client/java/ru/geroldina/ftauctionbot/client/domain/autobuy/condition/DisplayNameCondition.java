@@ -4,12 +4,10 @@ import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
 
 import java.util.Optional;
 
-public record DisplayNameContainsCondition(String value) implements BuyRuleCondition {
+public record DisplayNameCondition(String value) implements BuyRuleCondition {
     @Override
     public ConditionMatchResult matches(AuctionLot lot) {
-        return ConditionSupport.normalizeFreeText(lot.displayName()).contains(ConditionSupport.normalizeFreeText(value))
-            ? ConditionMatchResult.success()
-            : ConditionMatchResult.failure("displayNameContains mismatch");
+        return ConditionMatchResult.success();
     }
 
     @Override

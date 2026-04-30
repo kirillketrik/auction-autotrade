@@ -84,6 +84,31 @@ class AuctionScanCoordinatorTest {
         assertEquals(1, gateway.clickedSlots.size());
     }
 
+    @Test
+    void usesConfiguredPageSwitchDelayBeforeClickingNextPage() {
+        FakeGateway gateway = new FakeGateway();
+        FakeRepository repository = new FakeRepository();
+        AuctionScanCoordinator coordinator = new AuctionScanCoordinator(
+            gateway,
+            new FakeScreenAnalyzer(45, new PageInfo(1, 99), 44),
+            new FakeLotExtractor(),
+            repository,
+            new FakeLogger()
+        );
+
+        coordinator.startScan(5, 500);
+        coordinator.onAuctionScreenOpened(7, "1/99 Аукцион", null);
+        coordinator.onAuctionInventory(7, filledInventory(45), null);
+
+        for (int index = 0; index < 10; index++) {
+            coordinator.onClientTick();
+        }
+        assertEquals(0, gateway.clickedSlots.size());
+
+        coordinator.onClientTick();
+        assertEquals(1, gateway.clickedSlots.size());
+    }
+
     private static List<ItemStack> filledInventory(int size) {
         List<ItemStack> contents = new ArrayList<>(size);
         for (int index = 0; index < size; index++) {

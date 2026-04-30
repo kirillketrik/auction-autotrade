@@ -28,12 +28,16 @@ import ru.geroldina.ftauctionbot.client.infrastructure.minecraft.MinecraftAuctio
 import ru.geroldina.ftauctionbot.client.infrastructure.minecraft.MinecraftAuctionEventBridge;
 import ru.geroldina.ftauctionbot.client.infrastructure.config.JsonAutobuyRuleRepository;
 import ru.geroldina.ftauctionbot.client.infrastructure.persistence.JsonAuctionScanResultRepository;
+import ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy.AutobuyConfigScreen;
 
 public final class FtAuctionBotClient implements ClientModInitializer {
     private static final int DEFAULT_SCAN_PAGE_LIMIT = 10;
 
     private KeyBinding startScanKey;
+    private KeyBinding openAutobuyConfigKey;
     private AuctionScanCoordinator coordinator;
+    private AutobuyConfigManager configManager;
+    private AutobuyLoopController autobuyLoopController;
 
     @Override
     public void onInitializeClient() {
@@ -57,7 +61,7 @@ public final class FtAuctionBotClient implements ClientModInitializer {
         );
         BalanceTracker balanceTracker = new BalanceTracker(gateway, new MoneyParser(), logger);
         CurrentAuctionViewTracker auctionViewTracker = new CurrentAuctionViewTracker(screenAnalyzer, lotExtractor);
-        AutobuyConfigManager configManager = new AutobuyConfigManager(new JsonAutobuyRuleRepository(), logger);
+        configManager = new AutobuyConfigManager(new JsonAutobuyRuleRepository(), logger);
         configManager.loadStartup();
         RelevantPacketLogger packetLogger = new RelevantPacketLogger(logger);
         AutobuyExecutor autobuyExecutor = new AutobuyExecutor(
@@ -68,7 +72,7 @@ public final class FtAuctionBotClient implements ClientModInitializer {
             new DefaultAutobuyRuleMatcher(),
             logger
         );
-        AutobuyLoopController autobuyLoopController = new AutobuyLoopController(
+        autobuyLoopController = new AutobuyLoopController(
             gateway,
             coordinator,
             balanceTracker,
@@ -82,11 +86,23 @@ public final class FtAuctionBotClient implements ClientModInitializer {
         MinecraftAuctionEventBridge.register(auctionViewTracker);
         MinecraftAuctionEventBridge.register(packetLogger);
         MinecraftAuctionEventBridge.register(autobuyLoopController);
-        FtAuctionBotClientCommands.register(configManager, balanceTracker, packetLogger, autobuyExecutor, autobuyLoopController);
+        FtAuctionBotClientCommands.register(
+            configManager,
+            balanceTracker,
+            packetLogger,
+            autobuyExecutor,
+            autobuyLoopController,
+            () -> client.execute(() -> client.setScreen(new AutobuyConfigScreen(configManager, autobuyLoopController)))
+        );
 
         startScanKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.ftauctionbot.scan_auction",
             GLFW.GLFW_KEY_F6,
+            "category.ftauctionbot"
+        ));
+        openAutobuyConfigKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+            "key.ftauctionbot.open_autobuy_config",
+            GLFW.GLFW_KEY_F7,
             "category.ftauctionbot"
         ));
 
@@ -96,6 +112,9 @@ public final class FtAuctionBotClient implements ClientModInitializer {
     private void onEndClientTick(MinecraftClient client) {
         while (startScanKey.wasPressed()) {
             coordinator.startScan(DEFAULT_SCAN_PAGE_LIMIT);
+        }
+        while (openAutobuyConfigKey.wasPressed()) {
+            client.execute(() -> client.setScreen(new AutobuyConfigScreen(configManager, autobuyLoopController)));
         }
 
         MinecraftAuctionEventBridge.onClientTick();

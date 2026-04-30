@@ -4,8 +4,7 @@ import org.junit.jupiter.api.Test;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.EnchantmentData;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.PotionEffectData;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameContainsCondition;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameEqualsCondition;
+import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxTotalPriceCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.RequiredEnchantmentsCondition;
@@ -31,7 +30,7 @@ class DefaultAutobuyRuleMatcherTest {
             "Totem",
             true,
             new ItemIdCondition("minecraft:totem_of_undying"),
-            new DisplayNameContainsCondition("Талисман"),
+            new DisplayNameCondition("Талисман"),
             new MaxTotalPriceCondition(7_000_000L)
         );
         AuctionLot lot = new AuctionLot(1, 5, "minecraft:totem_of_undying", "[★] Талисман Вихря", 1, 6_800_000L, 6_800_000L, "DoctorInsane", List.of(), List.of());
@@ -92,15 +91,14 @@ class DefaultAutobuyRuleMatcherTest {
     }
 
     @Test
-    void normalizesItemIdsNamesAndSellerNamesBeforeMatching() {
+    void ignoresDisplayNameConditionDuringBuyMatching() {
         BuyRule rule = new BuyRule(
             "totem",
             "Totem",
             true,
             List.of(
                 new ItemIdCondition("TOTEM_OF_UNDYING"),
-                new DisplayNameContainsCondition("  тотем   "),
-                new DisplayNameEqualsCondition("Тотем бессмертия"),
+                new DisplayNameCondition("Совсем другое имя"),
                 new MaxTotalPriceCondition(7_000_000L),
                 new SellerAllowListCondition(List.of("doctorinsane"))
             )
@@ -109,7 +107,7 @@ class DefaultAutobuyRuleMatcherTest {
             1,
             12,
             "minecraft:totem_of_undying",
-            "Тотем  бессмертия",
+            "Неважное название",
             1,
             6_800_000L,
             6_800_000L,

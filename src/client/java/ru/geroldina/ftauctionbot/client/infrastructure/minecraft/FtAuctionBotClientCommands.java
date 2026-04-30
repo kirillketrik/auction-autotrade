@@ -28,10 +28,17 @@ public final class FtAuctionBotClientCommands {
         BalanceService balanceService,
         RelevantPacketLogger packetLogger,
         AutobuyExecutor autobuyExecutor,
-        AutobuyLoopController autobuyLoopController
+        AutobuyLoopController autobuyLoopController,
+        Runnable openAutobuyGuiAction
     ) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
             ClientCommandManager.literal("ftab")
+                .then(ClientCommandManager.literal("gui")
+                    .executes(context -> {
+                        openAutobuyGuiAction.run();
+                        context.getSource().sendFeedback(Text.literal("Opened autobuy config UI."));
+                        return 1;
+                    }))
                 .then(ClientCommandManager.literal("reload")
                     .executes(context -> {
                         int count = configManager.reload().buyRules().size();

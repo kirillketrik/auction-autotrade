@@ -22,9 +22,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class AuctionScanCoordinator implements MinecraftClientEventListener, AuctionScanController {
+    static final int DEFAULT_NEXT_PAGE_CLICK_DELAY_MS = 200;
+    private static final int TICKS_PER_SECOND = 20;
     private static final int OPEN_TIMEOUT_TICKS = 100;
     private static final int PAGE_TIMEOUT_TICKS = 60;
-    private static final int NEXT_PAGE_CLICK_DELAY_TICKS = 4;
     private static final int NEXT_PAGE_RETRY_TICKS = 20;
     private static final int MAX_NEXT_PAGE_ATTEMPTS = 3;
     private static final DateTimeFormatter FILE_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
@@ -56,11 +57,21 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
 
     @Override
     public void startScan(int maxPages) {
-        startScanCommand("ah", maxPages);
+        startScan(maxPages, DEFAULT_NEXT_PAGE_CLICK_DELAY_MS);
+    }
+
+    @Override
+    public void startScan(int maxPages, int pageSwitchDelayMs) {
+        startScanCommand("ah", maxPages, pageSwitchDelayMs);
     }
 
     @Override
     public void startScanCommand(String command, int maxPages) {
+        startScanCommand(command, maxPages, DEFAULT_NEXT_PAGE_CLICK_DELAY_MS);
+    }
+
+    @Override
+    public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs) {
         if (state != AuctionScanState.IDLE) {
             logger.info("SCANNER", "Scan request ignored because another scan is already running.");
             return;
@@ -82,12 +93,17 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
             "auction-scan-" + FILE_TIMESTAMP_FORMAT.format(now) + ".json",
             command,
             maxPages,
-            OPEN_TIMEOUT_TICKS
+            OPEN_TIMEOUT_TICKS,
+            toDelayTicks(pageSwitchDelayMs)
         );
         state = AuctionScanState.OPENING_AUCTION;
 
         clientGateway.sendChatCommand(command);
-        logger.info("SCANNER", "Started auction scan. Waiting for /" + command + " to open. maxPages=" + maxPages);
+        logger.info(
+            "SCANNER",
+            "Started auction scan. Waiting for /" + command + " to open. maxPages=" + maxPages
+                + ", pageSwitchDelayMs=" + normalizeDelayMs(pageSwitchDelayMs)
+        );
     }
 
     @Override
@@ -252,7 +268,7 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
         state = AuctionScanState.WAITING_FOR_NEXT_PAGE;
         currentSession.pendingNextPageSlot = nextPageSlot;
         currentSession.activeSyncId = syncId;
-        currentSession.pageClickDelayTicks = NEXT_PAGE_CLICK_DELAY_TICKS;
+        currentSession.pageClickDelayTicks = currentSession.pageSwitchDelayTicks;
         currentSession.pageWaitTicks = 0;
         currentSession.nextPageAttempts = 0;
     }
@@ -306,6 +322,14 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
         finishScan(false, reason);
     }
 
+    private static int normalizeDelayMs(int pageSwitchDelayMs) {
+        return pageSwitchDelayMs <= 0 ? DEFAULT_NEXT_PAGE_CLICK_DELAY_MS : pageSwitchDelayMs;
+    }
+
+    private static int toDelayTicks(int pageSwitchDelayMs) {
+        return Math.max(1, (int) Math.ceil(normalizeDelayMs(pageSwitchDelayMs) / (1000.0 / TICKS_PER_SECOND)));
+    }
+
     private void finishScan(boolean completed, String abortReason) {
         AuctionScanSession currentSession = requireSession();
         state = AuctionScanState.IDLE;
@@ -336,6 +360,10 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
     }
 
     private void logRawLotComponents(ItemStack stack, ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot lot) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
+
         PotionContentsComponent potionContents = stack.get(DataComponentTypes.POTION_CONTENTS);
         ItemEnchantmentsComponent enchantments = stack.get(DataComponentTypes.ENCHANTMENTS);
         ItemEnchantmentsComponent storedEnchantments = stack.get(DataComponentTypes.STORED_ENCHANTMENTS);

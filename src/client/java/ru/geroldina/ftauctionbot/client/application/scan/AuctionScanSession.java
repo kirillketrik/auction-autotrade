@@ -12,6 +12,7 @@ final class AuctionScanSession {
     final String scanFileName;
     final String command;
     final int maxPagesToScan;
+    final int pageSwitchDelayTicks;
     final List<AuctionLot> scannedItems = new ArrayList<>();
     final Set<Integer> scannedPages = new HashSet<>();
 
@@ -25,11 +26,12 @@ final class AuctionScanSession {
     int nextPageAttempts;
     String activeTitle = "";
 
-    AuctionScanSession(String startedAt, String scanFileName, String command, int maxPagesToScan, int timeoutTicks) {
+    AuctionScanSession(String startedAt, String scanFileName, String command, int maxPagesToScan, int timeoutTicks, int pageSwitchDelayTicks) {
         this.startedAt = startedAt;
         this.scanFileName = scanFileName;
         this.command = command;
         this.maxPagesToScan = maxPagesToScan;
         this.timeoutTicks = timeoutTicks;
+        this.pageSwitchDelayTicks = pageSwitchDelayTicks;
     }
 }
