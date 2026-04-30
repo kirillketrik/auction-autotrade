@@ -2,7 +2,6 @@ package ru.geroldina.ftauctionbot.client.infrastructure.config;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxTotalPriceCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.RequiredEnchantmentsCondition;
@@ -37,6 +36,8 @@ class JsonAutobuyRuleRepositoryTest {
         assertEquals(10, config.scanPageLimit());
         assertEquals(200, config.pageSwitchDelayMs());
         assertEquals(AutobuyScanLogMode.MATCHED_ONLY, config.scanLogMode());
+        assertEquals(15, config.marketResearchTargetMarginPercent());
+        assertEquals(5, config.marketResearchRiskBufferPercent());
     }
 
     @Test
@@ -48,6 +49,8 @@ class JsonAutobuyRuleRepositoryTest {
               "scanPageLimit": 6,
               "pageSwitchDelayMs": 450,
               "scanLogMode": "ALL",
+              "marketResearchTargetMarginPercent": 18,
+              "marketResearchRiskBufferPercent": 7,
               "buyRules": [
                 {
                   "id": "totem",
@@ -76,6 +79,8 @@ class JsonAutobuyRuleRepositoryTest {
         assertEquals(6, config.scanPageLimit());
         assertEquals(450, config.pageSwitchDelayMs());
         assertEquals(AutobuyScanLogMode.ALL, config.scanLogMode());
+        assertEquals(18, config.marketResearchTargetMarginPercent());
+        assertEquals(7, config.marketResearchRiskBufferPercent());
         BuyRule rule = config.buyRules().getFirst();
         assertEquals("totem", rule.id());
         assertEquals(2, rule.conditions().size());
@@ -93,6 +98,8 @@ class JsonAutobuyRuleRepositoryTest {
             5,
             275,
             AutobuyScanLogMode.ALL,
+            18,
+            6,
             List.of(new BuyRule(
                 "holy_water",
                 "Holy Water",
@@ -118,34 +125,8 @@ class JsonAutobuyRuleRepositoryTest {
         assertTrue(rawJson.contains("\"level\": 5"));
         assertTrue(rawJson.contains("\"required_potion_effects\""));
         assertTrue(rawJson.contains("\"durationSeconds\": 45"));
-    }
-
-    @Test
-    void loadsLegacyDisplayNameConditionAliases() throws Exception {
-        Path configPath = tempDir.resolve("ftauctionbot-buy-rules.json");
-        Files.writeString(configPath, """
-            {
-              "buyRules": [
-                {
-                  "id": "exp",
-                  "name": "Exp",
-                  "enabled": true,
-                  "conditions": [
-                    {
-                      "type": "display_name_contains",
-                      "value": "Bottle o' Enchanting"
-                    }
-                  ]
-                }
-              ]
-            }
-            """);
-
-        JsonAutobuyRuleRepository repository = new JsonAutobuyRuleRepository(configPath);
-        AutobuyConfig config = repository.load();
-
-        assertEquals(1, config.buyRules().size());
-        assertEquals(List.of(new DisplayNameCondition("Bottle o' Enchanting")), config.buyRules().getFirst().conditions());
+        assertTrue(rawJson.contains("\"marketResearchTargetMarginPercent\": 18"));
+        assertTrue(rawJson.contains("\"marketResearchRiskBufferPercent\": 6"));
     }
 
     private static String readRaw(Path path) {

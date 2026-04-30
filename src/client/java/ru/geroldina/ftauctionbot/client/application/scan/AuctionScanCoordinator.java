@@ -37,6 +37,7 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
     private final AuctionScanResultRepository resultRepository;
     private final ScanLogger logger;
     private final List<AuctionScanPageObserver> pageObservers = new ArrayList<>();
+    private final List<AuctionScanLifecycleObserver> lifecycleObservers = new ArrayList<>();
 
     private AuctionScanState state = AuctionScanState.IDLE;
     private AuctionScanSession session;
@@ -82,7 +83,8 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
             return;
         }
 
-        if (maxPages <= 0) {
+        boolean scanAllPages = maxPages <= 0;
+        if (!scanAllPages && maxPages <= 0) {
             logger.info("SCANNER", "Scan request ignored because maxPages must be > 0.");
             return;
         }
@@ -93,6 +95,7 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
             "auction-scan-" + FILE_TIMESTAMP_FORMAT.format(now) + ".json",
             command,
             maxPages,
+            scanAllPages,
             OPEN_TIMEOUT_TICKS,
             toDelayTicks(pageSwitchDelayMs)
         );
@@ -101,7 +104,7 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
         clientGateway.sendChatCommand(command);
         logger.info(
             "SCANNER",
-            "Started auction scan. Waiting for /" + command + " to open. maxPages=" + maxPages
+            "Started auction scan. Waiting for /" + command + " to open. maxPages=" + (scanAllPages ? "ALL" : maxPages)
                 + ", pageSwitchDelayMs=" + normalizeDelayMs(pageSwitchDelayMs)
         );
     }
@@ -195,6 +198,11 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
         pageObservers.add(observer);
     }
 
+    @Override
+    public void addLifecycleObserver(AuctionScanLifecycleObserver observer) {
+        lifecycleObservers.add(observer);
+    }
+
     public void onAuctionScreenOpened(int syncId, String title, ScreenHandler currentHandler) {
         onOpenScreen(syncId, title, currentHandler);
     }
@@ -254,7 +262,8 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
             }
         }
 
-        if (currentSession.scannedPages.size() >= currentSession.maxPagesToScan || pageInfo.currentPage() >= pageInfo.totalPages()) {
+        if ((!currentSession.scanAllPages && currentSession.scannedPages.size() >= currentSession.maxPagesToScan)
+            || pageInfo.currentPage() >= pageInfo.totalPages()) {
             finishScan(true, null);
             return;
         }
@@ -351,6 +360,17 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
                 + file.toAbsolutePath()
                 + (abortReason == null ? "" : " (reason=" + abortReason + ")")
         );
+
+        AuctionScanResultSummary summary = new AuctionScanResultSummary(
+            currentSession.command,
+            completed,
+            abortReason,
+            currentSession.scannedPages.size(),
+            currentSession.scannedItems.size()
+        );
+        for (AuctionScanLifecycleObserver observer : lifecycleObservers) {
+            observer.onScanFinished(summary);
+        }
 
         session = null;
     }

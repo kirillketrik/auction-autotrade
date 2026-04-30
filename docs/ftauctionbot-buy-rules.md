@@ -17,7 +17,10 @@ GUI редактирует тот же самый файл `run/config/ftauction
 {
   "scanIntervalSeconds": 15,
   "scanPageLimit": 6,
+  "pageSwitchDelayMs": 200,
   "scanLogMode": "MATCHED_ONLY",
+  "marketResearchTargetMarginPercent": 15,
+  "marketResearchRiskBufferPercent": 5,
   "buyRules": [
     {
       "id": "rule-id",
@@ -41,6 +44,8 @@ GUI редактирует тот же самый файл `run/config/ftauction
 - `scanLogMode`: режим логирования. Допустимые значения:
   - `MATCHED_ONLY`
   - `ALL`
+- `marketResearchTargetMarginPercent`: целевая маржа в процентах для рекомендаций покупки/продажи на вкладке исследования рынка.
+- `marketResearchRiskBufferPercent`: дополнительный буфер риска в процентах для тех же рекомендаций.
 - `buyRules`: список правил покупки.
 
 ## Поля правила
@@ -53,7 +58,6 @@ GUI редактирует тот же самый файл `run/config/ftauction
 ## Поддерживаемые `conditions.type`
 
 - `minecraft_id`
-- `display_name`
 - `max_total_price`
 - `max_unit_price`
 - `min_count`
@@ -71,15 +75,6 @@ GUI редактирует тот же самый файл `run/config/ftauction
 {
   "type": "minecraft_id",
   "minecraftId": "minecraft:splash_potion"
-}
-```
-
-### `display_name`
-
-```json
-{
-  "type": "display_name",
-  "value": "Святая вода"
 }
 ```
 
@@ -185,7 +180,10 @@ GUI редактирует тот же самый файл `run/config/ftauction
 {
   "scanIntervalSeconds": 15,
   "scanPageLimit": 6,
+  "pageSwitchDelayMs": 200,
   "scanLogMode": "MATCHED_ONLY",
+  "marketResearchTargetMarginPercent": 15,
+  "marketResearchRiskBufferPercent": 5,
   "buyRules": [
     {
       "id": "holy-water",
@@ -195,10 +193,6 @@ GUI редактирует тот же самый файл `run/config/ftauction
         {
           "type": "minecraft_id",
           "minecraftId": "minecraft:splash_potion"
-        },
-        {
-          "type": "display_name",
-          "value": "Святая вода"
         },
         {
           "type": "max_unit_price",
@@ -254,8 +248,8 @@ GUI редактирует тот же самый файл `run/config/ftauction
 
 - Нельзя использовать старый flat-формат правила без массива `conditions`.
 - Нельзя писать `required_enchantment`. Нужно `required_enchantments`.
-- `display_name` используется только для `/ah search` и не участвует в финальном решении о покупке.
-- Старые типы `display_name_contains` и `display_name_equals` автоматически читаются как `display_name`.
+- Для поиска `/ah search` используется поле `name` у правила.
+- Рекомендации на вкладке исследования рынка используют глобальные `marketResearchTargetMarginPercent` и `marketResearchRiskBufferPercent`.
 - Для списочных условий значения лежат внутри `value`.
 - Для зелий `level` задается как реальный уровень эффекта из интерфейса игры.
 - Для зелий `durationSeconds` задается в секундах, не в тиках.

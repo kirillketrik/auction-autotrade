@@ -2,6 +2,8 @@ package ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy;
 
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyConfigManager;
 import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryManager;
+import ru.geroldina.ftauctionbot.client.application.market.MarketResearchManager;
+import ru.geroldina.ftauctionbot.client.application.market.MarketResearchStartResult;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
 
@@ -9,6 +11,7 @@ final class AutobuyConfigPresenter {
     private final AutobuyConfigManager configManager;
     private final AutobuyLoopControl autobuyLoopControl;
     private final PurchaseHistoryManager purchaseHistoryManager;
+    private final MarketResearchManager marketResearchManager;
     private final AutobuyConfigSession session;
     private final AutobuyPickerCatalog pickerCatalog;
     private final Runnable rebuildUi;
@@ -18,6 +21,7 @@ final class AutobuyConfigPresenter {
         AutobuyConfigManager configManager,
         AutobuyLoopControl autobuyLoopControl,
         PurchaseHistoryManager purchaseHistoryManager,
+        MarketResearchManager marketResearchManager,
         AutobuyConfigSession session,
         AutobuyPickerCatalog pickerCatalog,
         Runnable rebuildUi,
@@ -26,6 +30,7 @@ final class AutobuyConfigPresenter {
         this.configManager = configManager;
         this.autobuyLoopControl = autobuyLoopControl;
         this.purchaseHistoryManager = purchaseHistoryManager;
+        this.marketResearchManager = marketResearchManager;
         this.session = session;
         this.pickerCatalog = pickerCatalog;
         this.rebuildUi = rebuildUi;
@@ -35,6 +40,7 @@ final class AutobuyConfigPresenter {
     void initialize() {
         session.reset(configManager.getCurrentConfig(), "Загружена активная конфигурация.");
         session.purchaseHistoryEntries(purchaseHistoryManager.load());
+        session.marketResearchResults(marketResearchManager.load());
     }
 
     void requestClose() {
@@ -117,6 +123,8 @@ final class AutobuyConfigPresenter {
         session.activeTab(tab);
         if (tab == AutobuyScreenTab.PURCHASE_HISTORY) {
             session.purchaseHistoryEntries(purchaseHistoryManager.load());
+        } else if (tab == AutobuyScreenTab.MARKET_RESEARCH) {
+            session.marketResearchResults(marketResearchManager.load());
         }
         rebuildUi.run();
     }
@@ -124,6 +132,34 @@ final class AutobuyConfigPresenter {
     void reloadPurchaseHistory() {
         session.purchaseHistoryEntries(purchaseHistoryManager.load());
         session.statusMessage("История покупок обновлена.");
+        rebuildUi.run();
+    }
+
+    void reloadMarketResearchResults() {
+        session.marketResearchResults(marketResearchManager.load());
+        session.statusMessage("Результаты исследования рынка обновлены.");
+        rebuildUi.run();
+    }
+
+    void startMarketResearch() {
+        int selectedRuleIndex = session.selectedRuleIndex();
+        if (selectedRuleIndex < 0 || selectedRuleIndex >= session.draft().buyRules.size()) {
+            session.statusMessage("Сначала выберите правило для исследования рынка.");
+            rebuildUi.run();
+            return;
+        }
+
+        AutobuyConfig draftConfig = session.draft().toDomain();
+        MarketResearchStartResult result = marketResearchManager.startRuleResearch(
+            session.draft().buyRules.get(selectedRuleIndex).toDomain(),
+            draftConfig,
+            draftConfig.pageSwitchDelayMs()
+        );
+        session.statusMessage(result.message());
+        session.marketResearchResults(marketResearchManager.load());
+        if (result.started()) {
+            session.activeTab(AutobuyScreenTab.MARKET_RESEARCH);
+        }
         rebuildUi.run();
     }
 
@@ -273,6 +309,16 @@ final class AutobuyConfigPresenter {
     void updatePageSwitchDelay(String value) {
         session.draft().pageSwitchDelayMs = AutobuyDraftParsing.clampPositive(AutobuyDraftParsing.parseInteger(value), 200);
         markFieldChanged("Задержка смены страниц, мс");
+    }
+
+    void updateMarketResearchTargetMargin(String value) {
+        session.draft().marketResearchTargetMarginPercent = AutobuyDraftParsing.clampNonNegative(AutobuyDraftParsing.parseInteger(value), 15);
+        markFieldChanged("Маржа market research");
+    }
+
+    void updateMarketResearchRiskBuffer(String value) {
+        session.draft().marketResearchRiskBufferPercent = AutobuyDraftParsing.clampNonNegative(AutobuyDraftParsing.parseInteger(value), 5);
+        markFieldChanged("Буфер риска market research");
     }
 
     void cycleLogMode() {

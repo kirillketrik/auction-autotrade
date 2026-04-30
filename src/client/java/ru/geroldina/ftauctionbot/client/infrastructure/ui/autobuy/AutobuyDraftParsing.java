@@ -31,4 +31,8 @@ final class AutobuyDraftParsing {
     static int clampPositive(Integer value, int fallback) {
         return value == null || value <= 0 ? fallback : value;
     }
+
+    static int clampNonNegative(Integer value, int fallback) {
+        return value == null || value < 0 ? fallback : value;
+    }
 }

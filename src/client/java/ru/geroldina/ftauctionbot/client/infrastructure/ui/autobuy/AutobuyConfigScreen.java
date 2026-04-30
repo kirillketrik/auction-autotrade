@@ -15,6 +15,7 @@ import org.jetbrains.annotations.NotNull;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyConfigManager;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyLoopController;
 import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryManager;
+import ru.geroldina.ftauctionbot.client.application.market.MarketResearchManager;
 
 public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implements AutobuyScreenViewHost {
     private final AutobuyConfigSession session;
@@ -24,15 +25,22 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
     private final AutobuyRuleListView ruleListView = new AutobuyRuleListView();
     private final AutobuyRuleEditorView ruleEditorView = new AutobuyRuleEditorView();
     private final AutobuyPurchaseHistoryView purchaseHistoryView = new AutobuyPurchaseHistoryView();
+    private final AutobuyMarketResearchView marketResearchView = new AutobuyMarketResearchView();
     private final AutobuyPickerOverlayView pickerOverlayView = new AutobuyPickerOverlayView();
 
     private io.wispforest.owo.ui.component.ButtonComponent saveButton;
     private UiScrollContainer<FlowLayout> ruleListScroll;
     private UiScrollContainer<FlowLayout> editorScroll;
     private UiScrollContainer<FlowLayout> historyScroll;
+    private UiScrollContainer<FlowLayout> marketResearchScroll;
     private UiScrollContainer<FlowLayout> pickerResultsScroll;
 
-    public AutobuyConfigScreen(AutobuyConfigManager configManager, AutobuyLoopController autobuyLoopController, PurchaseHistoryManager purchaseHistoryManager) {
+    public AutobuyConfigScreen(
+        AutobuyConfigManager configManager,
+        AutobuyLoopController autobuyLoopController,
+        PurchaseHistoryManager purchaseHistoryManager,
+        MarketResearchManager marketResearchManager
+    ) {
         super(AutobuyUiTextSupport.uiText("Конфигурация автобая"));
         AutobuyConfigValidator validator = new AutobuyConfigValidator();
         this.session = new AutobuyConfigSession(validator);
@@ -41,6 +49,7 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
             configManager,
             AutobuyLoopControl.from(autobuyLoopController),
             purchaseHistoryManager,
+            marketResearchManager,
             session,
             pickerCatalog,
             this::rebuildUi,
@@ -105,6 +114,11 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
     }
 
     @Override
+    public void setMarketResearchScroll(UiScrollContainer<FlowLayout> scroll) {
+        this.marketResearchScroll = scroll;
+    }
+
+    @Override
     public void setPickerResultsScroll(UiScrollContainer<FlowLayout> scroll) {
         this.pickerResultsScroll = scroll;
     }
@@ -147,6 +161,11 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
             body.child(purchaseHistoryView.build(this));
             return body;
         }
+        if (session.activeTab() == AutobuyScreenTab.MARKET_RESEARCH) {
+            FlowLayout body = Containers.verticalFlow(Sizing.fill(), Sizing.expand());
+            body.child(marketResearchView.build(this));
+            return body;
+        }
 
         FlowLayout body = Containers.horizontalFlow(Sizing.fill(), Sizing.expand());
         body.gap(8);
@@ -164,6 +183,9 @@ public final class AutobuyConfigScreen extends BaseOwoScreen<StackLayout> implem
         }
         if (historyScroll != null) {
             session.historyScrollProgress(historyScroll.progress());
+        }
+        if (marketResearchScroll != null) {
+            session.marketResearchScrollProgress(marketResearchScroll.progress());
         }
         if (pickerResultsScroll != null) {
             session.pickerResultsScrollProgress(pickerResultsScroll.progress());

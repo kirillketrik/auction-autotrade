@@ -1,26 +1,13 @@
 {
   "scanIntervalSeconds": 15,
   "scanPageLimit": 10,
-  "pageSwitchDelayMs": 5000,
+  "pageSwitchDelayMs": 500,
   "scanLogMode": "MATCHED_ONLY",
+  "marketResearchTargetMarginPercent": 50,
+  "marketResearchRiskBufferPercent": 20,
   "buyRules": [
     {
-      "id": "rule_2",
-      "name": "Пузырек опыта",
-      "enabled": true,
-      "conditions": [
-        {
-          "type": "minecraft_id",
-          "minecraftId": "minecraft:experience_bottle"
-        },
-        {
-          "type": "max_unit_price",
-          "value": 3200
-        }
-      ]
-    },
-    {
-      "id": "holy-water",
+      "id": "rule_1",
       "name": "Святая вода",
       "enabled": true,
       "conditions": [
@@ -30,7 +17,7 @@
         },
         {
           "type": "max_unit_price",
-          "value": 600000
+          "value": 1000000
         },
         {
           "type": "required_potion_effects",
@@ -59,8 +46,23 @@
       ]
     },
     {
+      "id": "rule_2",
+      "name": "Пузырек опыта",
+      "enabled": true,
+      "conditions": [
+        {
+          "type": "minecraft_id",
+          "minecraftId": "minecraft:experience_bottle"
+        },
+        {
+          "type": "max_unit_price",
+          "value": 3200
+        }
+      ]
+    },
+    {
       "id": "rule_3",
-      "name": "Чарка",
+      "name": "Зачарованное золотое яблоко",
       "enabled": true,
       "conditions": [
         {
@@ -69,7 +71,22 @@
         },
         {
           "type": "max_unit_price",
-          "value": 600000
+          "value": 2000000
+        }
+      ]
+    },
+    {
+      "id": "rule_4",
+      "name": "Изумрудный меч",
+      "enabled": true,
+      "conditions": [
+        {
+          "type": "minecraft_id",
+          "minecraftId": "minecraft:diamond_sword"
+        },
+        {
+          "type": "max_total_price",
+          "value": 200000
         }
       ]
     }

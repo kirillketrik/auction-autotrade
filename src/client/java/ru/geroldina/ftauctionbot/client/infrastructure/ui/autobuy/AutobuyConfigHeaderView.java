@@ -43,6 +43,11 @@ final class AutobuyConfigHeaderView {
             button -> host.presenter().selectTab(AutobuyScreenTab.PURCHASE_HISTORY),
             host.session().activeTab() == AutobuyScreenTab.PURCHASE_HISTORY
         ));
+        tabRow.child(AutobuyUiComponents.smallAction(
+            "Рынок",
+            button -> host.presenter().selectTab(AutobuyScreenTab.MARKET_RESEARCH),
+            host.session().activeTab() == AutobuyScreenTab.MARKET_RESEARCH
+        ));
         header.child(tabRow);
 
         if (!session.statusMessage().isBlank()) {

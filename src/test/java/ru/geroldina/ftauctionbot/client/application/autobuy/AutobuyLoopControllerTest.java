@@ -14,7 +14,6 @@ import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanPageObserver
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.DefaultAutobuyRuleMatcher;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxUnitPriceCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
@@ -36,7 +35,7 @@ class AutobuyLoopControllerTest {
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, 350, AutobuyScanLogMode.MATCHED_ONLY, List.of(
+            () -> new AutobuyConfig(5, 7, 350, AutobuyScanLogMode.MATCHED_ONLY, 15, 5, List.of(
                 BuyRule.of("generic", "Generic", true, new ItemIdCondition("minecraft:stone"))
             )),
             new FakeLogger()
@@ -69,7 +68,7 @@ class AutobuyLoopControllerTest {
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, 200, AutobuyScanLogMode.MATCHED_ONLY, List.of(
+            () -> new AutobuyConfig(5, 7, 200, AutobuyScanLogMode.MATCHED_ONLY, 15, 5, List.of(
                 BuyRule.of("totem", "Totem", true, new ItemIdCondition("minecraft:totem_of_undying"), new MaxUnitPriceCondition(7_000_000L))
             )),
             new FakeLogger()
@@ -104,13 +103,13 @@ class AutobuyLoopControllerTest {
     }
 
     @Test
-    void prefersSearchTasksForRulesWithDisplayName() {
+    void usesSingleGenericAuctionScanForAutobuyRules() {
         FakeGateway gateway = new FakeGateway();
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, 200, AutobuyScanLogMode.MATCHED_ONLY, List.of(
-                BuyRule.of("stone", "Stone", true, new ItemIdCondition("minecraft:stone"), new DisplayNameCondition("Булыжник")),
+            () -> new AutobuyConfig(5, 7, 200, AutobuyScanLogMode.MATCHED_ONLY, 15, 5, List.of(
+                BuyRule.of("stone", "Булыжник", true, new ItemIdCondition("minecraft:stone")),
                 BuyRule.of("generic", "Generic", true, new ItemIdCondition("minecraft:dirt"))
             )),
             new FakeLogger()
@@ -131,7 +130,8 @@ class AutobuyLoopControllerTest {
         controller.onClientTick();
         controller.onBalanceUpdated(new MoneySnapshot(10_000_000L, Instant.now()));
 
-        assertEquals("ah search Булыжник", scanController.lastCommand);
+        assertEquals("ah", scanController.lastCommand);
+        assertEquals(7, scanController.lastStartedMaxPages);
     }
 
     private static final class FakeGateway implements AuctionClientGateway {
@@ -205,6 +205,10 @@ class AutobuyLoopControllerTest {
 
         @Override
         public void addPageObserver(AuctionScanPageObserver observer) {
+        }
+
+        @Override
+        public void addLifecycleObserver(ru.geroldina.ftauctionbot.client.application.scan.AuctionScanLifecycleObserver observer) {
         }
     }
 

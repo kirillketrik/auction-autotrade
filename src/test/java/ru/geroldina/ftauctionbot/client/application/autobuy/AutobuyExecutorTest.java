@@ -29,7 +29,7 @@ class AutobuyExecutorTest {
     void sendsQuickMoveForApprovedBuyAttempt() {
         FakeGateway gateway = new FakeGateway();
         FakeBalanceService balanceService = new FakeBalanceService();
-        AutobuyConfigManager configManager = new AutobuyConfigManager(() -> new AutobuyConfig(30, 10, 200, AutobuyScanLogMode.MATCHED_ONLY, List.of(
+        AutobuyConfigManager configManager = new AutobuyConfigManager(() -> new AutobuyConfig(30, 10, 200, AutobuyScanLogMode.MATCHED_ONLY, 15, 5, List.of(
             BuyRule.of("totem", "Totem", true, new ItemIdCondition("minecraft:totem_of_undying"), new MaxTotalPriceCondition(7_000_000L))
         )), new FakeLogger());
         configManager.loadStartup();

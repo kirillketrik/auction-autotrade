@@ -2,6 +2,7 @@ package ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy;
 
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.PurchaseHistoryEntry;
+import ru.geroldina.ftauctionbot.client.domain.market.MarketResearchResult;
 
 import java.util.List;
 
@@ -16,10 +17,12 @@ final class AutobuyConfigSession {
     private List<String> validationErrors = List.of();
     private AutobuyScreenTab activeTab = AutobuyScreenTab.CONFIG;
     private List<PurchaseHistoryEntry> purchaseHistoryEntries = List.of();
+    private List<MarketResearchResult> marketResearchResults = List.of();
     private SearchPickerState activePicker;
     private double ruleListScrollProgress;
     private double editorScrollProgress;
     private double historyScrollProgress;
+    private double marketResearchScrollProgress;
     private double pickerResultsScrollProgress;
 
     AutobuyConfigSession(AutobuyConfigValidator validator) {
@@ -119,6 +122,14 @@ final class AutobuyConfigSession {
         this.purchaseHistoryEntries = purchaseHistoryEntries;
     }
 
+    List<MarketResearchResult> marketResearchResults() {
+        return marketResearchResults;
+    }
+
+    void marketResearchResults(List<MarketResearchResult> marketResearchResults) {
+        this.marketResearchResults = marketResearchResults;
+    }
+
     double ruleListScrollProgress() {
         return ruleListScrollProgress;
     }
@@ -141,6 +152,14 @@ final class AutobuyConfigSession {
 
     void historyScrollProgress(double historyScrollProgress) {
         this.historyScrollProgress = historyScrollProgress;
+    }
+
+    double marketResearchScrollProgress() {
+        return marketResearchScrollProgress;
+    }
+
+    void marketResearchScrollProgress(double marketResearchScrollProgress) {
+        this.marketResearchScrollProgress = marketResearchScrollProgress;
     }
 
     double pickerResultsScrollProgress() {

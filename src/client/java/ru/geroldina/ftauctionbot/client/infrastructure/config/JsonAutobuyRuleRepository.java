@@ -14,7 +14,6 @@ import com.google.gson.reflect.TypeToken;
 import net.fabricmc.loader.api.FabricLoader;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyRuleRepository;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.BuyRuleCondition;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxCountCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxTotalPriceCondition;
@@ -162,7 +161,6 @@ public final class JsonAutobuyRuleRepository implements AutobuyRuleRepository {
 
             return switch (type) {
                 case "minecraft_id" -> new ItemIdCondition(readString(object, "minecraftId"));
-                case "display_name", "display_name_contains", "display_name_equals" -> new DisplayNameCondition(readString(object, "value"));
                 case "max_total_price" -> new MaxTotalPriceCondition(readLong(object, "value"));
                 case "max_unit_price" -> new MaxUnitPriceCondition(readLong(object, "value"));
                 case "min_count" -> new MinCountCondition(readInteger(object, "value"));
@@ -183,10 +181,6 @@ public final class JsonAutobuyRuleRepository implements AutobuyRuleRepository {
                 case ItemIdCondition condition -> {
                     object.addProperty("type", "minecraft_id");
                     object.addProperty("minecraftId", condition.minecraftId());
-                }
-                case DisplayNameCondition condition -> {
-                    object.addProperty("type", "display_name");
-                    object.addProperty("value", condition.value());
                 }
                 case MaxTotalPriceCondition condition -> {
                     object.addProperty("type", "max_total_price");

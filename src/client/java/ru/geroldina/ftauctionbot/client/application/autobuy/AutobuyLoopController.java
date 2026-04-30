@@ -10,7 +10,6 @@ import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanController;
 import ru.geroldina.ftauctionbot.client.application.scan.AuctionScanPageObserver;
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
 import ru.geroldina.ftauctionbot.client.domain.auction.model.AuctionLot;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.BuyRuleCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.BuyDecision;
@@ -20,10 +19,8 @@ import ru.geroldina.ftauctionbot.client.infrastructure.minecraft.MinecraftClient
 import ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy.AutobuyConfigScreen;
 
 import java.util.ArrayDeque;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Queue;
-import java.util.Set;
 
 public final class AutobuyLoopController implements MinecraftClientEventListener, BalanceObserver, AuctionScanPageObserver {
     private static final int TICKS_PER_SECOND = 20;
@@ -330,43 +327,14 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     }
 
     private List<ScanTask> buildScanTasks(List<BuyRule> rules, int pageLimit) {
-        Set<String> uniqueQueries = new LinkedHashSet<>();
-        boolean requiresGenericScan = false;
-
         for (BuyRule rule : rules) {
             if (!rule.enabled()) {
                 continue;
             }
-
-            String searchQuery = resolveSearchQuery(rule);
-            if (searchQuery != null) {
-                uniqueQueries.add(searchQuery);
-            } else {
-                requiresGenericScan = true;
-            }
+            return List.of(new ScanTask("ah", "generic auction scan", pageLimit));
         }
 
-        Queue<ScanTask> tasks = new ArrayDeque<>();
-        for (String query : uniqueQueries) {
-            tasks.add(new ScanTask("ah search " + query, "search \"" + query + "\"", pageLimit));
-        }
-
-        if (requiresGenericScan) {
-            tasks.add(new ScanTask("ah", "generic auction scan", pageLimit));
-        }
-
-        return List.copyOf(tasks);
-    }
-
-    private String resolveSearchQuery(BuyRule rule) {
-        for (BuyRuleCondition condition : rule.conditions()) {
-            String query = condition.searchQuery().orElse(null);
-            if (query != null && !query.isBlank()) {
-                return query.trim();
-            }
-        }
-
-        return null;
+        return List.of();
     }
 
     private record ScanTask(String command, String description, int maxPages) {

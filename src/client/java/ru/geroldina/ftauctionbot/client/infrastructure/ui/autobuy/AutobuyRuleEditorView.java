@@ -56,6 +56,8 @@ final class AutobuyRuleEditorView {
         card.child(integerField("Интервал сканирования, сек", draft.scanIntervalSeconds, host.presenter()::updateScanInterval));
         card.child(integerField("Лимит страниц", draft.scanPageLimit, host.presenter()::updateScanPageLimit));
         card.child(integerField("Задержка смены страниц, мс", draft.pageSwitchDelayMs, host.presenter()::updatePageSwitchDelay));
+        card.child(integerField("Маржа market research, %", draft.marketResearchTargetMarginPercent, host.presenter()::updateMarketResearchTargetMargin));
+        card.child(integerField("Буфер риска market research, %", draft.marketResearchRiskBufferPercent, host.presenter()::updateMarketResearchRiskBuffer));
         card.child(cycleField("Режим логов", AutobuyUiTextSupport.localizeLogMode(draft.scanLogMode), host.presenter()::cycleLogMode));
         return card;
     }
@@ -70,6 +72,7 @@ final class AutobuyRuleEditorView {
         enabledCheckbox.checked(rule.enabled);
         enabledCheckbox.onChanged(value -> host.presenter().updateRuleEnabled(rule, value));
         card.child(enabledCheckbox);
+        card.child(AutobuyUiComponents.actionButton("Исследовать рынок", button -> host.presenter().startMarketResearch(), true));
 
         card.child(AutobuyUiComponents.primaryLabel("Условия"));
         if (rule.conditions.isEmpty()) {
@@ -100,7 +103,6 @@ final class AutobuyRuleEditorView {
 
         switch (condition.type) {
             case MINECRAFT_ID -> card.child(itemPickerField(host, "Предмет Minecraft", condition.stringValue, () -> host.presenter().openItemPicker(condition)));
-            case DISPLAY_NAME -> card.child(textField("Поиск по названию", condition.stringValue, value -> host.presenter().updateConditionString(condition, "Поиск по названию", value)));
             case MAX_TOTAL_PRICE -> card.child(longField("Макс. общая цена", condition.longValue, value -> host.presenter().updateConditionLong(condition, "Макс. общая цена", value)));
             case MAX_UNIT_PRICE -> card.child(longField("Макс. цена за штуку", condition.longValue, value -> host.presenter().updateConditionLong(condition, "Макс. цена за штуку", value)));
             case MIN_COUNT -> card.child(integerFieldNullable("Мин. количество", condition.intValue, value -> host.presenter().updateConditionInteger(condition, "Мин. количество", value)));

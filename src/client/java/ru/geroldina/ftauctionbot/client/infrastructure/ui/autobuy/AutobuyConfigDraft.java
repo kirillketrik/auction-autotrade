@@ -1,7 +1,6 @@
 package ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy;
 
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.BuyRuleCondition;
-import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.DisplayNameCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxCountCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.MaxTotalPriceCondition;
@@ -25,6 +24,8 @@ final class AutobuyConfigDraft {
     int scanPageLimit;
     int pageSwitchDelayMs;
     AutobuyScanLogMode scanLogMode;
+    int marketResearchTargetMarginPercent;
+    int marketResearchRiskBufferPercent;
     final List<BuyRuleDraft> buyRules = new ArrayList<>();
 
     static AutobuyConfigDraft fromDomain(AutobuyConfig config) {
@@ -33,6 +34,8 @@ final class AutobuyConfigDraft {
         draft.scanPageLimit = config.scanPageLimit();
         draft.pageSwitchDelayMs = config.pageSwitchDelayMs();
         draft.scanLogMode = config.scanLogMode();
+        draft.marketResearchTargetMarginPercent = config.marketResearchTargetMarginPercent();
+        draft.marketResearchRiskBufferPercent = config.marketResearchRiskBufferPercent();
         for (BuyRule rule : config.buyRules()) {
             draft.buyRules.add(BuyRuleDraft.fromDomain(rule));
         }
@@ -44,7 +47,15 @@ final class AutobuyConfigDraft {
         for (BuyRuleDraft rule : buyRules) {
             rules.add(rule.toDomain());
         }
-        return new AutobuyConfig(scanIntervalSeconds, scanPageLimit, pageSwitchDelayMs, scanLogMode, rules);
+        return new AutobuyConfig(
+            scanIntervalSeconds,
+            scanPageLimit,
+            pageSwitchDelayMs,
+            scanLogMode,
+            marketResearchTargetMarginPercent,
+            marketResearchRiskBufferPercent,
+            rules
+        );
     }
 
     static final class BuyRuleDraft {
@@ -75,7 +86,6 @@ final class AutobuyConfigDraft {
 
     enum ConditionType {
         MINECRAFT_ID("minecraft_id"),
-        DISPLAY_NAME("display_name"),
         MAX_TOTAL_PRICE("max_total_price"),
         MAX_UNIT_PRICE("max_unit_price"),
         MIN_COUNT("min_count"),
@@ -113,10 +123,6 @@ final class AutobuyConfigDraft {
                 case ItemIdCondition value -> {
                     draft.type = ConditionType.MINECRAFT_ID;
                     draft.stringValue = defaultString(value.minecraftId());
-                }
-                case DisplayNameCondition value -> {
-                    draft.type = ConditionType.DISPLAY_NAME;
-                    draft.stringValue = defaultString(value.value());
                 }
                 case MaxTotalPriceCondition value -> {
                     draft.type = ConditionType.MAX_TOTAL_PRICE;
@@ -169,7 +175,6 @@ final class AutobuyConfigDraft {
         BuyRuleCondition toDomain() {
             return switch (type) {
                 case MINECRAFT_ID -> new ItemIdCondition(blankToNull(stringValue));
-                case DISPLAY_NAME -> new DisplayNameCondition(blankToNull(stringValue));
                 case MAX_TOTAL_PRICE -> new MaxTotalPriceCondition(longValue);
                 case MAX_UNIT_PRICE -> new MaxUnitPriceCondition(longValue);
                 case MIN_COUNT -> new MinCountCondition(intValue);

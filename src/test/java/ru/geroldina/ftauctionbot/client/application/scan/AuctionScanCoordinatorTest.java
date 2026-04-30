@@ -109,6 +109,33 @@ class AuctionScanCoordinatorTest {
         assertEquals(1, gateway.clickedSlots.size());
     }
 
+    @Test
+    void scansUntilLastPageWhenRequestedForAllPages() {
+        FakeGateway gateway = new FakeGateway();
+        FakeRepository repository = new FakeRepository();
+        AuctionScanCoordinator coordinator = new AuctionScanCoordinator(
+            gateway,
+            new PagingScreenAnalyzer(45, 44),
+            new FakeLotExtractor(),
+            repository,
+            new FakeLogger()
+        );
+
+        coordinator.startScanAllPagesCommand("ah search Stone", 200);
+        coordinator.onAuctionScreenOpened(7, "1/2 Аукцион", null);
+        coordinator.onAuctionInventory(7, filledInventory(45), null);
+        for (int index = 0; index < 4; index++) {
+            coordinator.onClientTick();
+        }
+        coordinator.onAuctionScreenOpened(8, "2/2 Аукцион", null);
+        coordinator.onAuctionInventory(8, filledInventory(45), null);
+
+        assertNotNull(repository.savedResult);
+        assertTrue(repository.savedResult.completed());
+        assertEquals(2, repository.savedResult.scannedPages());
+        assertEquals(90, repository.savedResult.totalItems());
+    }
+
     private static List<ItemStack> filledInventory(int size) {
         List<ItemStack> contents = new ArrayList<>(size);
         for (int index = 0; index < size; index++) {
@@ -126,6 +153,30 @@ class AuctionScanCoordinatorTest {
         @Override
         public Optional<PageInfo> parsePageInfo(String title) {
             return Optional.of(pageInfo);
+        }
+
+        @Override
+        public int resolveTopSlotCount(ScreenHandler currentHandler, int fallbackTopSlotCount) {
+            return topSlotCount;
+        }
+
+        @Override
+        public int findNextPageSlot(List<ItemStack> topContents) {
+            return nextPageSlot;
+        }
+    }
+
+    private record PagingScreenAnalyzer(int topSlotCount, int nextPageSlot) implements AuctionScreenAnalyzer {
+        @Override
+        public boolean isAuctionScreenTitle(String title) {
+            return title.contains("Аукцион");
+        }
+
+        @Override
+        public Optional<PageInfo> parsePageInfo(String title) {
+            String[] fragments = title.split(" ");
+            String[] pages = fragments[0].split("/");
+            return Optional.of(new PageInfo(Integer.parseInt(pages[0]), Integer.parseInt(pages[1])));
         }
 
         @Override
@@ -170,6 +221,11 @@ class AuctionScanCoordinatorTest {
         @Override
         public void clickSlot(int syncId, int slotId, int button, SlotActionType actionType) {
             clickedSlots.add(slotId);
+        }
+
+        @Override
+        public boolean closeActiveHandledScreen() {
+            return false;
         }
     }
 

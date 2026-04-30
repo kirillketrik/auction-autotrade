@@ -28,7 +28,6 @@ final class AutobuyUiTextSupport {
     static String shortTypeName(AutobuyConfigDraft.ConditionType type) {
         return switch (type) {
             case MINECRAFT_ID -> "Minecraft ID";
-            case DISPLAY_NAME -> "Название предмета";
             case MAX_TOTAL_PRICE -> "Макс. цена";
             case MAX_UNIT_PRICE -> "Макс. цена за шт.";
             case MIN_COUNT -> "Мин. кол-во";
@@ -43,7 +42,6 @@ final class AutobuyUiTextSupport {
     static String localizeConditionType(AutobuyConfigDraft.ConditionType type) {
         return switch (type) {
             case MINECRAFT_ID -> "minecraft ID";
-            case DISPLAY_NAME -> "название предмета";
             case MAX_TOTAL_PRICE -> "макс. общая цена";
             case MAX_UNIT_PRICE -> "макс. цена за штуку";
             case MIN_COUNT -> "мин. количество";

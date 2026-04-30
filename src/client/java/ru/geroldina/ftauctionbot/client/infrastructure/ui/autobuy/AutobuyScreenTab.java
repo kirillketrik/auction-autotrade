@@ -2,5 +2,6 @@ package ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy;
 
 enum AutobuyScreenTab {
     CONFIG,
-    PURCHASE_HISTORY
+    PURCHASE_HISTORY,
+    MARKET_RESEARCH
 }

@@ -5,7 +5,10 @@ import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyConfigManager
 import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryManager;
 import ru.geroldina.ftauctionbot.client.application.autobuy.PurchaseHistoryRepository;
 import ru.geroldina.ftauctionbot.client.application.autobuy.AutobuyRuleRepository;
+import ru.geroldina.ftauctionbot.client.application.market.MarketResearchManager;
+import ru.geroldina.ftauctionbot.client.application.market.MarketResearchRepository;
 import ru.geroldina.ftauctionbot.client.application.scan.ScanLogger;
+import ru.geroldina.ftauctionbot.client.domain.market.MarketResearchResult;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.condition.ItemIdCondition;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyConfig;
 import ru.geroldina.ftauctionbot.client.domain.autobuy.model.AutobuyScanLogMode;
@@ -133,6 +136,8 @@ class AutobuyConfigPresenterTest {
             10,
             200,
             AutobuyScanLogMode.MATCHED_ONLY,
+            15,
+            5,
             List.of(BuyRule.of("totem_rule", "Totem Rule", true, new ItemIdCondition("minecraft:totem_of_undying")))
         );
     }
@@ -143,6 +148,7 @@ class AutobuyConfigPresenterTest {
         private final TestLoopControl loopControl = new TestLoopControl();
         private final AutobuyConfigManager configManager;
         private final InMemoryPurchaseHistoryRepository historyRepository = new InMemoryPurchaseHistoryRepository();
+        private final InMemoryMarketResearchRepository marketResearchRepository = new InMemoryMarketResearchRepository();
         private final AutobuyConfigSession session = new AutobuyConfigSession(new AutobuyConfigValidator());
         private final AutobuyConfigPresenter presenter;
 
@@ -154,6 +160,7 @@ class AutobuyConfigPresenterTest {
                 configManager,
                 loopControl,
                 new PurchaseHistoryManager(historyRepository, new NoopLogger()),
+                new MarketResearchManager(new NoopScanController(), marketResearchRepository, new NoopLogger()),
                 session,
                 new AutobuyPickerCatalog(),
                 rebuildCalls::incrementAndGet,
@@ -220,6 +227,43 @@ class AutobuyConfigPresenterTest {
         @Override
         public void save(List<PurchaseHistoryEntry> entries) {
             this.entries = entries;
+        }
+    }
+
+    private static final class InMemoryMarketResearchRepository implements MarketResearchRepository {
+        private List<MarketResearchResult> entries = List.of();
+
+        @Override
+        public List<MarketResearchResult> load() {
+            return entries;
+        }
+
+        @Override
+        public void save(List<MarketResearchResult> results) {
+            this.entries = results;
+        }
+    }
+
+    private static final class NoopScanController implements ru.geroldina.ftauctionbot.client.application.scan.AuctionScanController {
+        @Override
+        public void startScan(int maxPages, int pageSwitchDelayMs) {
+        }
+
+        @Override
+        public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs) {
+        }
+
+        @Override
+        public boolean isIdle() {
+            return true;
+        }
+
+        @Override
+        public void addPageObserver(ru.geroldina.ftauctionbot.client.application.scan.AuctionScanPageObserver observer) {
+        }
+
+        @Override
+        public void addLifecycleObserver(ru.geroldina.ftauctionbot.client.application.scan.AuctionScanLifecycleObserver observer) {
         }
     }
 }

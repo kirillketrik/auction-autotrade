@@ -13,7 +13,13 @@ public interface AuctionScanController {
 
     void startScanCommand(String command, int maxPages, int pageSwitchDelayMs);
 
+    default void startScanAllPagesCommand(String command, int pageSwitchDelayMs) {
+        startScanCommand(command, 0, pageSwitchDelayMs);
+    }
+
     boolean isIdle();
 
     void addPageObserver(AuctionScanPageObserver observer);
+
+    void addLifecycleObserver(AuctionScanLifecycleObserver observer);
 }

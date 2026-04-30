@@ -15,6 +15,12 @@ final class AutobuyConfigValidator {
         if (draft.pageSwitchDelayMs <= 0) {
             errors.add("Задержка смены страниц должна быть больше 0.");
         }
+        if (draft.marketResearchTargetMarginPercent < 0) {
+            errors.add("Целевая маржа market research не может быть отрицательной.");
+        }
+        if (draft.marketResearchRiskBufferPercent < 0) {
+            errors.add("Буфер риска market research не может быть отрицательным.");
+        }
 
         for (int ruleIndex = 0; ruleIndex < draft.buyRules.size(); ruleIndex++) {
             AutobuyConfigDraft.BuyRuleDraft rule = draft.buyRules.get(ruleIndex);
@@ -30,7 +36,7 @@ final class AutobuyConfigValidator {
                 AutobuyConfigDraft.ConditionDraft condition = rule.conditions.get(conditionIndex);
                 String conditionLabel = label + ", условие " + (conditionIndex + 1) + " (" + AutobuyUiTextSupport.localizeConditionType(condition.type) + ")";
                 switch (condition.type) {
-                    case MINECRAFT_ID, DISPLAY_NAME -> {
+                    case MINECRAFT_ID -> {
                         if (AutobuyUiTextSupport.isBlank(condition.stringValue)) {
                             errors.add(conditionLabel + ": требуется непустое значение.");
                         }

@@ -18,6 +18,8 @@ class AutobuyConfigValidatorTest {
             10,
             200,
             AutobuyScanLogMode.MATCHED_ONLY,
+            15,
+            5,
             List.of(new BuyRule(null, "Rule", true, List.of()))
         ));
 
