@@ -21,11 +21,13 @@ import ru.geroldina.ftauctionbot.client.infrastructure.ui.autobuy.AutobuyConfigS
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
+import java.util.random.RandomGenerator;
 
 public final class AutobuyLoopController implements MinecraftClientEventListener, BalanceObserver, AuctionScanPageObserver {
     private static final int TICKS_PER_SECOND = 20;
     private static final int PURCHASE_SUPPRESSION_TICKS = 40;
     private static final int NEXT_TASK_START_DELAY_TICKS = 4;
+    private static final int ANTI_AFK_MOVEMENT_TICKS = 3;
 
     private final AuctionClientGateway gateway;
     private final AuctionScanController scanController;
@@ -34,16 +36,20 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     private final AutobuyRuleMatcher ruleMatcher;
     private final PurchaseHistoryManager purchaseHistoryManager;
     private final ScanLogger logger;
+    private final RandomGenerator random;
 
     private boolean enabled;
     private boolean waitingForBalance;
     private int ticksUntilNextScan;
+    private int ticksUntilNextAntiAfkAction;
     private boolean scanCycleActive;
     private int purchaseSuppressionTicks;
     private int suppressedSyncId = -1;
     private final Queue<ScanTask> pendingScanTasks = new ArrayDeque<>();
     private ScanTask delayedScanTask;
     private int delayedScanTaskTicks;
+    private AntiAfkMoveDirection activeAntiAfkMovement;
+    private int activeAntiAfkMovementTicks;
 
     public AutobuyLoopController(
         AuctionClientGateway gateway,
@@ -54,6 +60,19 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         PurchaseHistoryManager purchaseHistoryManager,
         ScanLogger logger
     ) {
+        this(gateway, scanController, balanceService, configManager, ruleMatcher, purchaseHistoryManager, logger, RandomGenerator.getDefault());
+    }
+
+    AutobuyLoopController(
+        AuctionClientGateway gateway,
+        AuctionScanController scanController,
+        BalanceService balanceService,
+        AutobuyConfigManager configManager,
+        AutobuyRuleMatcher ruleMatcher,
+        PurchaseHistoryManager purchaseHistoryManager,
+        ScanLogger logger,
+        RandomGenerator random
+    ) {
         this.gateway = gateway;
         this.scanController = scanController;
         this.balanceService = balanceService;
@@ -61,6 +80,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         this.ruleMatcher = ruleMatcher;
         this.purchaseHistoryManager = purchaseHistoryManager;
         this.logger = logger;
+        this.random = random;
         this.balanceService.addObserver(this);
         this.scanController.addPageObserver(this);
     }
@@ -72,6 +92,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     public void start() {
         enabled = true;
         ticksUntilNextScan = 0;
+        ticksUntilNextAntiAfkAction = 0;
         waitingForBalance = false;
         scanCycleActive = false;
         purchaseSuppressionTicks = 0;
@@ -79,12 +100,14 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         pendingScanTasks.clear();
         delayedScanTask = null;
         delayedScanTaskTicks = 0;
+        clearAntiAfkState();
         logger.info("AUTOBUY_LOOP", "Autobuy loop started.");
     }
 
     public void stop() {
         enabled = false;
         ticksUntilNextScan = 0;
+        ticksUntilNextAntiAfkAction = 0;
         waitingForBalance = false;
         scanCycleActive = false;
         purchaseSuppressionTicks = 0;
@@ -92,6 +115,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         pendingScanTasks.clear();
         delayedScanTask = null;
         delayedScanTaskTicks = 0;
+        clearAntiAfkState();
         logger.info("AUTOBUY_LOOP", "Autobuy loop stopped.");
     }
 
@@ -109,14 +133,17 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         }
 
         if (!enabled || !gateway.isReady()) {
+            clearAntiAfkState();
             return;
         }
 
         if (waitingForBalance || balanceService.isAwaitingRefresh()) {
+            clearAntiAfkState();
             return;
         }
 
         if (delayedScanTask != null) {
+            clearAntiAfkState();
             if (delayedScanTaskTicks > 0) {
                 return;
             }
@@ -128,6 +155,7 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         }
 
         if (scanController.isIdle() && !pendingScanTasks.isEmpty()) {
+            clearAntiAfkState();
             startNextQueuedScan();
             return;
         }
@@ -135,19 +163,22 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         if (scanController.isIdle() && scanCycleActive && pendingScanTasks.isEmpty()) {
             scanCycleActive = false;
             scheduleNextScan();
-            logger.info("AUTOBUY_LOOP", "Completed autobuy scan cycle. Next cycle in " + configManager.getCurrentConfig().scanIntervalSeconds() + "s.");
+            logger.info("AUTOBUY_LOOP", "Completed autobuy scan cycle. Scheduled next cycle in " + ticksUntilNextScan + " ticks.");
             return;
         }
 
         if (!scanController.isIdle()) {
+            clearAntiAfkState();
             return;
         }
 
         if (ticksUntilNextScan > 0) {
+            tickAntiAfkDuringPause();
             ticksUntilNextScan--;
             return;
         }
 
+        clearAntiAfkState();
         waitingForBalance = balanceService.requestRefresh();
         if (!waitingForBalance) {
             logger.info("AUTOBUY_LOOP", "Failed to request balance refresh before scan.");
@@ -170,8 +201,10 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
         logger.info(
             "AUTOBUY_LOOP",
             "Prepared autobuy scan cycle. interval=" + config.scanIntervalSeconds()
+                + "s, intervalJitter=" + config.scanIntervalJitterSeconds()
                 + "s, pageLimit=" + config.scanPageLimit()
                 + ", pageSwitchDelayMs=" + config.pageSwitchDelayMs()
+                + ", pageSwitchDelayJitterMs=" + config.pageSwitchDelayJitterMs()
                 + ", balance=$" + snapshot.amount()
                 + ", tasks=" + pendingScanTasks.size()
         );
@@ -261,7 +294,17 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     }
 
     private void scheduleNextScan() {
-        ticksUntilNextScan = configManager.getCurrentConfig().scanIntervalSeconds() * TICKS_PER_SECOND;
+        AutobuyConfig config = configManager.getCurrentConfig();
+        int randomizedSeconds = randomizeAroundBase(config.scanIntervalSeconds(), config.scanIntervalJitterSeconds(), 1);
+        ticksUntilNextScan = randomizedSeconds * TICKS_PER_SECOND;
+        ticksUntilNextAntiAfkAction = Math.min(ticksUntilNextScan, config.antiAfkActionIntervalSeconds() * TICKS_PER_SECOND);
+        clearAntiAfkState();
+        logger.info(
+            "AUTOBUY_LOOP",
+            "Next autobuy cycle scheduled in " + randomizedSeconds
+                + "s (base=" + config.scanIntervalSeconds()
+                + "s, jitter=" + config.scanIntervalJitterSeconds() + "s)."
+        );
     }
 
     private void startNextQueuedScan() {
@@ -285,8 +328,78 @@ public final class AutobuyLoopController implements MinecraftClientEventListener
     }
 
     private void startScanTask(ScanTask task) {
+        clearAntiAfkState();
+        AutobuyConfig config = configManager.getCurrentConfig();
         logger.info("AUTOBUY_LOOP", "Starting headless scan task: " + task.description + " via /" + task.command);
-        scanController.startScanCommand(task.command, task.maxPages, configManager.getCurrentConfig().pageSwitchDelayMs());
+        scanController.startScanCommand(task.command, task.maxPages, config.pageSwitchDelayMs(), config.pageSwitchDelayJitterMs());
+    }
+
+    private void tickAntiAfkDuringPause() {
+        if (activeAntiAfkMovementTicks > 0 && activeAntiAfkMovement != null) {
+            if (!gateway.canPerformAntiAfkActions()) {
+                clearAntiAfkState();
+                return;
+            }
+
+            gateway.applyAntiAfkMovement(activeAntiAfkMovement);
+            activeAntiAfkMovementTicks--;
+            if (activeAntiAfkMovementTicks == 0) {
+                gateway.stopAntiAfkMovement();
+                activeAntiAfkMovement = null;
+            }
+        }
+
+        AutobuyConfig config = configManager.getCurrentConfig();
+        if (!config.antiAfkEnabled() || !gateway.canPerformAntiAfkActions()) {
+            clearAntiAfkState();
+            return;
+        }
+
+        if (ticksUntilNextAntiAfkAction > 0) {
+            ticksUntilNextAntiAfkAction--;
+            return;
+        }
+
+        performAntiAfkAction(config);
+        ticksUntilNextAntiAfkAction = Math.min(ticksUntilNextScan, config.antiAfkActionIntervalSeconds() * TICKS_PER_SECOND);
+    }
+
+    private void performAntiAfkAction(AutobuyConfig config) {
+        int jumpRoll = random.nextInt(100);
+        if (jumpRoll < config.antiAfkJumpChancePercent()) {
+            gateway.jump();
+            logger.info("AUTOBUY_LOOP", "Performed anti-AFK jump while waiting for the next autobuy cycle.");
+            return;
+        }
+
+        AntiAfkMoveDirection direction = switch (random.nextInt(4)) {
+            case 0 -> AntiAfkMoveDirection.FORWARD;
+            case 1 -> AntiAfkMoveDirection.BACKWARD;
+            case 2 -> AntiAfkMoveDirection.LEFT;
+            default -> AntiAfkMoveDirection.RIGHT;
+        };
+        activeAntiAfkMovement = direction;
+        activeAntiAfkMovementTicks = ANTI_AFK_MOVEMENT_TICKS;
+        gateway.applyAntiAfkMovement(direction);
+        logger.info("AUTOBUY_LOOP", "Performed anti-AFK movement: " + direction + ".");
+    }
+
+    private int randomizeAroundBase(int base, int jitter, int minValue) {
+        int normalizedJitter = Math.max(0, jitter);
+        if (normalizedJitter == 0) {
+            return Math.max(minValue, base);
+        }
+
+        int delta = random.nextInt(normalizedJitter * 2 + 1) - normalizedJitter;
+        return Math.max(minValue, base + delta);
+    }
+
+    private void clearAntiAfkState() {
+        if (activeAntiAfkMovement != null || activeAntiAfkMovementTicks > 0) {
+            gateway.stopAntiAfkMovement();
+        }
+        activeAntiAfkMovement = null;
+        activeAntiAfkMovementTicks = 0;
     }
 
     private void logLotScanResult(AuctionLot lot, BuyDecision decision, MoneySnapshot balance) {

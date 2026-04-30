@@ -16,9 +16,14 @@ GUI редактирует тот же самый файл `run/config/ftauction
 ```json
 {
   "scanIntervalSeconds": 15,
+  "scanIntervalJitterSeconds": 2,
   "scanPageLimit": 6,
   "pageSwitchDelayMs": 200,
+  "pageSwitchDelayJitterMs": 80,
   "scanLogMode": "MATCHED_ONLY",
+  "antiAfkEnabled": true,
+  "antiAfkActionIntervalSeconds": 7,
+  "antiAfkJumpChancePercent": 20,
   "marketResearchTargetMarginPercent": 15,
   "marketResearchRiskBufferPercent": 5,
   "buyRules": [
@@ -40,10 +45,16 @@ GUI редактирует тот же самый файл `run/config/ftauction
 ## Корневые поля
 
 - `scanIntervalSeconds`: интервал между циклами autobuy в секундах.
+- `scanIntervalJitterSeconds`: случайный разброс для интервала между циклами autobuy. Итоговая пауза считается как `scanIntervalSeconds ± scanIntervalJitterSeconds`.
 - `scanPageLimit`: сколько страниц аукциона сканировать за цикл.
+- `pageSwitchDelayMs`: базовая задержка между переключениями страниц при сканировании.
+- `pageSwitchDelayJitterMs`: случайный разброс для задержки смены страниц. Итоговая задержка считается как `pageSwitchDelayMs ± pageSwitchDelayJitterMs`.
 - `scanLogMode`: режим логирования. Допустимые значения:
   - `MATCHED_ONLY`
   - `ALL`
+- `antiAfkEnabled`: включает анти-AFK действия во время паузы между циклами автобая.
+- `antiAfkActionIntervalSeconds`: как часто во время паузы бот делает анти-AFK действие.
+- `antiAfkJumpChancePercent`: вероятность прыжка при анти-AFK действии. Если прыжок не выбран, бот делает короткое случайное движение.
 - `marketResearchTargetMarginPercent`: целевая маржа в процентах для рекомендаций покупки/продажи на вкладке исследования рынка.
 - `marketResearchRiskBufferPercent`: дополнительный буфер риска в процентах для тех же рекомендаций.
 - `buyRules`: список правил покупки.
@@ -179,9 +190,14 @@ GUI редактирует тот же самый файл `run/config/ftauction
 ```json
 {
   "scanIntervalSeconds": 15,
+  "scanIntervalJitterSeconds": 2,
   "scanPageLimit": 6,
   "pageSwitchDelayMs": 200,
+  "pageSwitchDelayJitterMs": 80,
   "scanLogMode": "MATCHED_ONLY",
+  "antiAfkEnabled": true,
+  "antiAfkActionIntervalSeconds": 7,
+  "antiAfkJumpChancePercent": 20,
   "marketResearchTargetMarginPercent": 15,
   "marketResearchRiskBufferPercent": 5,
   "buyRules": [

@@ -24,6 +24,7 @@ import ru.geroldina.ftauctionbot.client.domain.balance.MoneySnapshot;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -35,7 +36,7 @@ class AutobuyLoopControllerTest {
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, 350, AutobuyScanLogMode.MATCHED_ONLY, 15, 5, List.of(
+            () -> new AutobuyConfig(5, 2, 7, 350, 90, AutobuyScanLogMode.MATCHED_ONLY, true, 7, 20, 15, 5, List.of(
                 BuyRule.of("generic", "Generic", true, new ItemIdCondition("minecraft:stone"))
             )),
             new FakeLogger()
@@ -49,7 +50,8 @@ class AutobuyLoopControllerTest {
             configManager,
             new DefaultAutobuyRuleMatcher(),
             new PurchaseHistoryManager(new InMemoryPurchaseHistoryRepository(), new FakeLogger()),
-            new FakeLogger()
+            new FakeLogger(),
+            new Random(0)
         );
 
         controller.start();
@@ -60,6 +62,7 @@ class AutobuyLoopControllerTest {
         assertEquals(7, scanController.lastStartedMaxPages);
         assertEquals("ah", scanController.lastCommand);
         assertEquals(350, scanController.lastPageSwitchDelayMs);
+        assertEquals(90, scanController.lastPageSwitchDelayJitterMs);
     }
 
     @Test
@@ -68,7 +71,7 @@ class AutobuyLoopControllerTest {
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, 200, AutobuyScanLogMode.MATCHED_ONLY, 15, 5, List.of(
+            () -> new AutobuyConfig(5, 2, 7, 200, 50, AutobuyScanLogMode.MATCHED_ONLY, true, 7, 20, 15, 5, List.of(
                 BuyRule.of("totem", "Totem", true, new ItemIdCondition("minecraft:totem_of_undying"), new MaxUnitPriceCondition(7_000_000L))
             )),
             new FakeLogger()
@@ -82,7 +85,8 @@ class AutobuyLoopControllerTest {
             configManager,
             new DefaultAutobuyRuleMatcher(),
             new PurchaseHistoryManager(new InMemoryPurchaseHistoryRepository(), new FakeLogger()),
-            new FakeLogger()
+            new FakeLogger(),
+            new Random(0)
         );
         controller.start();
         balanceService.balance = Optional.of(new MoneySnapshot(10_000_000L, Instant.now()));
@@ -108,7 +112,7 @@ class AutobuyLoopControllerTest {
         FakeScanController scanController = new FakeScanController();
         FakeBalanceService balanceService = new FakeBalanceService();
         AutobuyConfigManager configManager = new AutobuyConfigManager(
-            () -> new AutobuyConfig(5, 7, 200, AutobuyScanLogMode.MATCHED_ONLY, 15, 5, List.of(
+            () -> new AutobuyConfig(5, 2, 7, 200, 50, AutobuyScanLogMode.MATCHED_ONLY, true, 7, 20, 15, 5, List.of(
                 BuyRule.of("stone", "Булыжник", true, new ItemIdCondition("minecraft:stone")),
                 BuyRule.of("generic", "Generic", true, new ItemIdCondition("minecraft:dirt"))
             )),
@@ -123,7 +127,8 @@ class AutobuyLoopControllerTest {
             configManager,
             new DefaultAutobuyRuleMatcher(),
             new PurchaseHistoryManager(new InMemoryPurchaseHistoryRepository(), new FakeLogger()),
-            new FakeLogger()
+            new FakeLogger(),
+            new Random(0)
         );
 
         controller.start();
@@ -134,11 +139,51 @@ class AutobuyLoopControllerTest {
         assertEquals(7, scanController.lastStartedMaxPages);
     }
 
+    @Test
+    void performsAntiAfkMovementWhileWaitingForNextCycle() {
+        FakeGateway gateway = new FakeGateway();
+        FakeScanController scanController = new FakeScanController();
+        FakeBalanceService balanceService = new FakeBalanceService();
+        AutobuyConfigManager configManager = new AutobuyConfigManager(
+            () -> new AutobuyConfig(5, 2, 7, 200, 50, AutobuyScanLogMode.MATCHED_ONLY, true, 1, 0, 15, 5, List.of(
+                BuyRule.of("stone", "Stone", true, new ItemIdCondition("minecraft:stone"))
+            )),
+            new FakeLogger()
+        );
+        configManager.loadStartup();
+
+        AutobuyLoopController controller = new AutobuyLoopController(
+            gateway,
+            scanController,
+            balanceService,
+            configManager,
+            new DefaultAutobuyRuleMatcher(),
+            new PurchaseHistoryManager(new InMemoryPurchaseHistoryRepository(), new FakeLogger()),
+            new FakeLogger(),
+            new FixedIntRandom(0)
+        );
+
+        controller.start();
+        controller.onClientTick();
+        controller.onBalanceUpdated(new MoneySnapshot(10_000_000L, Instant.now()));
+        controller.onClientTick();
+        controller.onClientTick();
+
+        for (int index = 0; index < 21; index++) {
+            controller.onClientTick();
+        }
+
+        assertTrue(gateway.movements.contains(AntiAfkMoveDirection.FORWARD));
+    }
+
     private static final class FakeGateway implements AuctionClientGateway {
         private int syncId = -1;
         private int slot = -1;
         private SlotActionType actionType;
         private boolean closeRequested;
+        private final List<AntiAfkMoveDirection> movements = new java.util.ArrayList<>();
+        private int stopMovementCalls;
+        private int jumpCalls;
 
         @Override
         public boolean isReady() {
@@ -165,11 +210,32 @@ class AutobuyLoopControllerTest {
             closeRequested = true;
             return false;
         }
+
+        @Override
+        public boolean canPerformAntiAfkActions() {
+            return true;
+        }
+
+        @Override
+        public void applyAntiAfkMovement(AntiAfkMoveDirection direction) {
+            movements.add(direction);
+        }
+
+        @Override
+        public void stopAntiAfkMovement() {
+            stopMovementCalls++;
+        }
+
+        @Override
+        public void jump() {
+            jumpCalls++;
+        }
     }
 
     private static final class FakeScanController implements AuctionScanController {
         private int lastStartedMaxPages = -1;
         private int lastPageSwitchDelayMs = -1;
+        private int lastPageSwitchDelayJitterMs = -1;
         private String lastCommand;
 
         @Override
@@ -179,10 +245,11 @@ class AutobuyLoopControllerTest {
         }
 
         @Override
-        public void startScan(int maxPages, int pageSwitchDelayMs) {
+        public void startScan(int maxPages, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
             lastStartedMaxPages = maxPages;
             lastCommand = "ah";
             lastPageSwitchDelayMs = pageSwitchDelayMs;
+            lastPageSwitchDelayJitterMs = pageSwitchDelayJitterMs;
         }
 
         @Override
@@ -192,10 +259,11 @@ class AutobuyLoopControllerTest {
         }
 
         @Override
-        public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs) {
+        public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
             lastCommand = command;
             lastStartedMaxPages = maxPages;
             lastPageSwitchDelayMs = pageSwitchDelayMs;
+            lastPageSwitchDelayJitterMs = pageSwitchDelayJitterMs;
         }
 
         @Override
@@ -209,6 +277,19 @@ class AutobuyLoopControllerTest {
 
         @Override
         public void addLifecycleObserver(ru.geroldina.ftauctionbot.client.application.scan.AuctionScanLifecycleObserver observer) {
+        }
+    }
+
+    private static final class FixedIntRandom extends Random {
+        private final int value;
+
+        private FixedIntRandom(int value) {
+            this.value = value;
+        }
+
+        @Override
+        public int nextInt(int bound) {
+            return Math.floorMod(value, bound);
         }
     }
 

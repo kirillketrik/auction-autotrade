@@ -153,7 +153,8 @@ final class AutobuyConfigPresenter {
         MarketResearchStartResult result = marketResearchManager.startRuleResearch(
             session.draft().buyRules.get(selectedRuleIndex).toDomain(),
             draftConfig,
-            draftConfig.pageSwitchDelayMs()
+            draftConfig.pageSwitchDelayMs(),
+            draftConfig.pageSwitchDelayJitterMs()
         );
         session.statusMessage(result.message());
         session.marketResearchResults(marketResearchManager.load());
@@ -306,9 +307,34 @@ final class AutobuyConfigPresenter {
         markFieldChanged("Лимит страниц");
     }
 
+    void updateScanIntervalJitter(String value) {
+        session.draft().scanIntervalJitterSeconds = AutobuyDraftParsing.clampNonNegative(AutobuyDraftParsing.parseInteger(value), 2);
+        markFieldChanged("Разброс интервала сканирования, сек");
+    }
+
     void updatePageSwitchDelay(String value) {
         session.draft().pageSwitchDelayMs = AutobuyDraftParsing.clampPositive(AutobuyDraftParsing.parseInteger(value), 200);
         markFieldChanged("Задержка смены страниц, мс");
+    }
+
+    void updatePageSwitchDelayJitter(String value) {
+        session.draft().pageSwitchDelayJitterMs = AutobuyDraftParsing.clampNonNegative(AutobuyDraftParsing.parseInteger(value), 150);
+        markFieldChanged("Разброс задержки смены страниц, мс");
+    }
+
+    void updateAntiAfkEnabled(boolean value) {
+        session.draft().antiAfkEnabled = value;
+        session.markDirty(value ? "Анти-AFK включён." : "Анти-AFK выключен.");
+    }
+
+    void updateAntiAfkActionInterval(String value) {
+        session.draft().antiAfkActionIntervalSeconds = AutobuyDraftParsing.clampPositive(AutobuyDraftParsing.parseInteger(value), 7);
+        markFieldChanged("Интервал анти-AFK, сек");
+    }
+
+    void updateAntiAfkJumpChance(String value) {
+        session.draft().antiAfkJumpChancePercent = AutobuyDraftParsing.clampNonNegative(AutobuyDraftParsing.parseInteger(value), 20);
+        markFieldChanged("Шанс прыжка анти-AFK, %");
     }
 
     void updateMarketResearchTargetMargin(String value) {

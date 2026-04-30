@@ -38,4 +38,21 @@ class AutobuyConfigValidatorTest {
         assertTrue(result.valid());
         assertTrue(result.errors().isEmpty());
     }
+
+    @Test
+    void rejectsInvalidAntiAfkAndJitterValues() {
+        AutobuyConfigDraft draft = AutobuyConfigDraft.fromDomain(AutobuyConfig.empty());
+        draft.scanIntervalJitterSeconds = draft.scanIntervalSeconds;
+        draft.pageSwitchDelayJitterMs = -1;
+        draft.antiAfkActionIntervalSeconds = 0;
+        draft.antiAfkJumpChancePercent = 101;
+
+        AutobuyValidationResult result = new AutobuyConfigValidator().validate(draft);
+
+        assertFalse(result.valid());
+        assertTrue(result.errors().stream().anyMatch(error -> error.contains("Разброс интервала сканирования")));
+        assertTrue(result.errors().stream().anyMatch(error -> error.contains("Разброс задержки смены страниц")));
+        assertTrue(result.errors().stream().anyMatch(error -> error.contains("Интервал анти-AFK")));
+        assertTrue(result.errors().stream().anyMatch(error -> error.contains("Шанс прыжка анти-AFK")));
+    }
 }

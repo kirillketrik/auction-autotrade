@@ -12,6 +12,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -136,6 +137,32 @@ class AuctionScanCoordinatorTest {
         assertEquals(90, repository.savedResult.totalItems());
     }
 
+    @Test
+    void appliesJitterToConfiguredPageSwitchDelay() {
+        FakeGateway gateway = new FakeGateway();
+        FakeRepository repository = new FakeRepository();
+        AuctionScanCoordinator coordinator = new AuctionScanCoordinator(
+            gateway,
+            new FakeScreenAnalyzer(45, new PageInfo(1, 99), 44),
+            new FakeLotExtractor(),
+            repository,
+            new FakeLogger(),
+            new FixedIntRandom(200)
+        );
+
+        coordinator.startScan(5, 500, 100);
+        coordinator.onAuctionScreenOpened(7, "1/99 Аукцион", null);
+        coordinator.onAuctionInventory(7, filledInventory(45), null);
+
+        for (int index = 0; index < 12; index++) {
+            coordinator.onClientTick();
+        }
+        assertEquals(0, gateway.clickedSlots.size());
+
+        coordinator.onClientTick();
+        assertEquals(1, gateway.clickedSlots.size());
+    }
+
     private static List<ItemStack> filledInventory(int size) {
         List<ItemStack> contents = new ArrayList<>(size);
         for (int index = 0; index < size; index++) {
@@ -246,6 +273,19 @@ class AuctionScanCoordinatorTest {
 
         @Override
         public void block(String category, List<String> lines) {
+        }
+    }
+
+    private static final class FixedIntRandom extends Random {
+        private final int value;
+
+        private FixedIntRandom(int value) {
+            this.value = value;
+        }
+
+        @Override
+        public int nextInt(int bound) {
+            return Math.floorMod(value, bound);
         }
     }
 }

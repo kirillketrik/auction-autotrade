@@ -9,11 +9,26 @@ final class AutobuyConfigValidator {
         if (draft.scanIntervalSeconds <= 0) {
             errors.add("Интервал сканирования должен быть больше 0.");
         }
+        if (draft.scanIntervalJitterSeconds < 0) {
+            errors.add("Разброс интервала сканирования не может быть отрицательным.");
+        }
+        if (draft.scanIntervalJitterSeconds >= draft.scanIntervalSeconds) {
+            errors.add("Разброс интервала сканирования должен быть меньше самого интервала.");
+        }
         if (draft.scanPageLimit <= 0) {
             errors.add("Лимит страниц должен быть больше 0.");
         }
         if (draft.pageSwitchDelayMs <= 0) {
             errors.add("Задержка смены страниц должна быть больше 0.");
+        }
+        if (draft.pageSwitchDelayJitterMs < 0) {
+            errors.add("Разброс задержки смены страниц не может быть отрицательным.");
+        }
+        if (draft.antiAfkActionIntervalSeconds <= 0) {
+            errors.add("Интервал анти-AFK должен быть больше 0.");
+        }
+        if (draft.antiAfkJumpChancePercent < 0 || draft.antiAfkJumpChancePercent > 100) {
+            errors.add("Шанс прыжка анти-AFK должен быть в диапазоне от 0 до 100.");
         }
         if (draft.marketResearchTargetMarginPercent < 0) {
             errors.add("Целевая маржа market research не может быть отрицательной.");

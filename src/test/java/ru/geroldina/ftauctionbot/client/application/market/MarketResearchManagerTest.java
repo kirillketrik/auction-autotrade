@@ -48,6 +48,7 @@ class MarketResearchManagerTest {
         assertTrue(startResult.started());
         assertEquals("ah search Totem Rule", scanController.lastCommand);
         assertEquals(350, scanController.lastDelayMs);
+        assertEquals(0, scanController.lastDelayJitterMs);
 
         AuctionPageDecision firstDecision = scanController.pageObserver.onPageScanned(1, 1, 2, List.of(
             new AuctionLot(1, 1, "minecraft:totem_of_undying", "Totem", 1, 120L, 120L, null, List.of(), List.of()),
@@ -148,21 +149,24 @@ class MarketResearchManagerTest {
         private AuctionScanLifecycleObserver lifecycleObserver;
         private String lastCommand;
         private int lastDelayMs;
+        private int lastDelayJitterMs;
 
         @Override
-        public void startScan(int maxPages, int pageSwitchDelayMs) {
+        public void startScan(int maxPages, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
         }
 
         @Override
-        public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs) {
+        public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
             this.lastCommand = command;
             this.lastDelayMs = pageSwitchDelayMs;
+            this.lastDelayJitterMs = pageSwitchDelayJitterMs;
         }
 
         @Override
-        public void startScanAllPagesCommand(String command, int pageSwitchDelayMs) {
+        public void startScanAllPagesCommand(String command, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
             this.lastCommand = command;
             this.lastDelayMs = pageSwitchDelayMs;
+            this.lastDelayJitterMs = pageSwitchDelayJitterMs;
         }
 
         @Override

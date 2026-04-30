@@ -58,10 +58,14 @@ public final class MarketResearchManager implements AuctionScanPageObserver, Auc
     }
 
     public MarketResearchStartResult startRuleResearch(BuyRule rule, AutobuyConfig config) {
-        return startRuleResearch(rule, config, config.pageSwitchDelayMs());
+        return startRuleResearch(rule, config, config.pageSwitchDelayMs(), config.pageSwitchDelayJitterMs());
     }
 
     public MarketResearchStartResult startRuleResearch(BuyRule rule, AutobuyConfig config, int pageSwitchDelayMs) {
+        return startRuleResearch(rule, config, pageSwitchDelayMs, 0);
+    }
+
+    public MarketResearchStartResult startRuleResearch(BuyRule rule, AutobuyConfig config, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
         if (activeSession != null || !scanController.isIdle()) {
             return MarketResearchStartResult.rejected("Исследование рынка уже выполняется.");
         }
@@ -94,7 +98,7 @@ public final class MarketResearchManager implements AuctionScanPageObserver, Auc
             config.marketResearchTargetMarginPercent(),
             config.marketResearchRiskBufferPercent()
         );
-        scanController.startScanAllPagesCommand(command, pageSwitchDelayMs);
+        scanController.startScanAllPagesCommand(command, pageSwitchDelayMs, pageSwitchDelayJitterMs);
         logger.info("MARKET_RESEARCH", "Started market research for rule=" + rule.id() + ", command=/" + command + ", minecraftId=" + targetMinecraftId);
         return MarketResearchStartResult.started("Запущено исследование рынка для правила " + ruleName + ".");
     }

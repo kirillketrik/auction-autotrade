@@ -246,11 +246,11 @@ class AutobuyConfigPresenterTest {
 
     private static final class NoopScanController implements ru.geroldina.ftauctionbot.client.application.scan.AuctionScanController {
         @Override
-        public void startScan(int maxPages, int pageSwitchDelayMs) {
+        public void startScan(int maxPages, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
         }
 
         @Override
-        public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs) {
+        public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
         }
 
         @Override

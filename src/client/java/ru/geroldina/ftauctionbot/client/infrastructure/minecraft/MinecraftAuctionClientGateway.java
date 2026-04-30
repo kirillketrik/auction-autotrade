@@ -3,6 +3,7 @@ package ru.geroldina.ftauctionbot.client.infrastructure.minecraft;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.screen.slot.SlotActionType;
+import ru.geroldina.ftauctionbot.client.application.autobuy.AntiAfkMoveDirection;
 import ru.geroldina.ftauctionbot.client.application.scan.AuctionClientGateway;
 
 public final class MinecraftAuctionClientGateway implements AuctionClientGateway {
@@ -52,5 +53,46 @@ public final class MinecraftAuctionClientGateway implements AuctionClientGateway
 
         player.closeHandledScreen();
         return true;
+    }
+
+    @Override
+    public boolean canPerformAntiAfkActions() {
+        ClientPlayerEntity player = client.player;
+        return player != null
+            && client.currentScreen == null
+            && player.currentScreenHandler == player.playerScreenHandler;
+    }
+
+    @Override
+    public void applyAntiAfkMovement(AntiAfkMoveDirection direction) {
+        if (!canPerformAntiAfkActions()) {
+            return;
+        }
+
+        stopAntiAfkMovement();
+        switch (direction) {
+            case FORWARD -> client.options.forwardKey.setPressed(true);
+            case BACKWARD -> client.options.backKey.setPressed(true);
+            case LEFT -> client.options.leftKey.setPressed(true);
+            case RIGHT -> client.options.rightKey.setPressed(true);
+        }
+    }
+
+    @Override
+    public void stopAntiAfkMovement() {
+        client.options.forwardKey.setPressed(false);
+        client.options.backKey.setPressed(false);
+        client.options.leftKey.setPressed(false);
+        client.options.rightKey.setPressed(false);
+    }
+
+    @Override
+    public void jump() {
+        ClientPlayerEntity player = client.player;
+        if (!canPerformAntiAfkActions() || player == null || !player.isOnGround()) {
+            return;
+        }
+
+        player.jump();
     }
 }

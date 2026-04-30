@@ -21,9 +21,14 @@ import java.util.List;
 
 final class AutobuyConfigDraft {
     int scanIntervalSeconds;
+    int scanIntervalJitterSeconds;
     int scanPageLimit;
     int pageSwitchDelayMs;
+    int pageSwitchDelayJitterMs;
     AutobuyScanLogMode scanLogMode;
+    boolean antiAfkEnabled;
+    int antiAfkActionIntervalSeconds;
+    int antiAfkJumpChancePercent;
     int marketResearchTargetMarginPercent;
     int marketResearchRiskBufferPercent;
     final List<BuyRuleDraft> buyRules = new ArrayList<>();
@@ -31,9 +36,14 @@ final class AutobuyConfigDraft {
     static AutobuyConfigDraft fromDomain(AutobuyConfig config) {
         AutobuyConfigDraft draft = new AutobuyConfigDraft();
         draft.scanIntervalSeconds = config.scanIntervalSeconds();
+        draft.scanIntervalJitterSeconds = config.scanIntervalJitterSeconds();
         draft.scanPageLimit = config.scanPageLimit();
         draft.pageSwitchDelayMs = config.pageSwitchDelayMs();
+        draft.pageSwitchDelayJitterMs = config.pageSwitchDelayJitterMs();
         draft.scanLogMode = config.scanLogMode();
+        draft.antiAfkEnabled = config.antiAfkEnabled();
+        draft.antiAfkActionIntervalSeconds = config.antiAfkActionIntervalSeconds();
+        draft.antiAfkJumpChancePercent = config.antiAfkJumpChancePercent();
         draft.marketResearchTargetMarginPercent = config.marketResearchTargetMarginPercent();
         draft.marketResearchRiskBufferPercent = config.marketResearchRiskBufferPercent();
         for (BuyRule rule : config.buyRules()) {
@@ -49,9 +59,14 @@ final class AutobuyConfigDraft {
         }
         return new AutobuyConfig(
             scanIntervalSeconds,
+            scanIntervalJitterSeconds,
             scanPageLimit,
             pageSwitchDelayMs,
+            pageSwitchDelayJitterMs,
             scanLogMode,
+            antiAfkEnabled,
+            antiAfkActionIntervalSeconds,
+            antiAfkJumpChancePercent,
             marketResearchTargetMarginPercent,
             marketResearchRiskBufferPercent,
             rules

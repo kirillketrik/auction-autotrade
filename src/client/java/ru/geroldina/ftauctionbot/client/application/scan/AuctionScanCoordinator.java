@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.random.RandomGenerator;
 
 public final class AuctionScanCoordinator implements MinecraftClientEventListener, AuctionScanController {
     static final int DEFAULT_NEXT_PAGE_CLICK_DELAY_MS = 200;
@@ -36,6 +37,7 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
     private final AuctionLotExtractor lotExtractor;
     private final AuctionScanResultRepository resultRepository;
     private final ScanLogger logger;
+    private final RandomGenerator random;
     private final List<AuctionScanPageObserver> pageObservers = new ArrayList<>();
     private final List<AuctionScanLifecycleObserver> lifecycleObservers = new ArrayList<>();
 
@@ -49,30 +51,52 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
         AuctionScanResultRepository resultRepository,
         ScanLogger logger
     ) {
+        this(clientGateway, screenAnalyzer, lotExtractor, resultRepository, logger, RandomGenerator.getDefault());
+    }
+
+    AuctionScanCoordinator(
+        AuctionClientGateway clientGateway,
+        AuctionScreenAnalyzer screenAnalyzer,
+        AuctionLotExtractor lotExtractor,
+        AuctionScanResultRepository resultRepository,
+        ScanLogger logger,
+        RandomGenerator random
+    ) {
         this.clientGateway = clientGateway;
         this.screenAnalyzer = screenAnalyzer;
         this.lotExtractor = lotExtractor;
         this.resultRepository = resultRepository;
         this.logger = logger;
+        this.random = random;
     }
 
     @Override
     public void startScan(int maxPages) {
-        startScan(maxPages, DEFAULT_NEXT_PAGE_CLICK_DELAY_MS);
+        startScan(maxPages, DEFAULT_NEXT_PAGE_CLICK_DELAY_MS, 0);
     }
 
     @Override
     public void startScan(int maxPages, int pageSwitchDelayMs) {
-        startScanCommand("ah", maxPages, pageSwitchDelayMs);
+        startScan(maxPages, pageSwitchDelayMs, 0);
+    }
+
+    @Override
+    public void startScan(int maxPages, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
+        startScanCommand("ah", maxPages, pageSwitchDelayMs, pageSwitchDelayJitterMs);
     }
 
     @Override
     public void startScanCommand(String command, int maxPages) {
-        startScanCommand(command, maxPages, DEFAULT_NEXT_PAGE_CLICK_DELAY_MS);
+        startScanCommand(command, maxPages, DEFAULT_NEXT_PAGE_CLICK_DELAY_MS, 0);
     }
 
     @Override
     public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs) {
+        startScanCommand(command, maxPages, pageSwitchDelayMs, 0);
+    }
+
+    @Override
+    public void startScanCommand(String command, int maxPages, int pageSwitchDelayMs, int pageSwitchDelayJitterMs) {
         if (state != AuctionScanState.IDLE) {
             logger.info("SCANNER", "Scan request ignored because another scan is already running.");
             return;
@@ -97,6 +121,8 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
             maxPages,
             scanAllPages,
             OPEN_TIMEOUT_TICKS,
+            normalizeDelayMs(pageSwitchDelayMs),
+            normalizeJitterMs(pageSwitchDelayJitterMs),
             toDelayTicks(pageSwitchDelayMs)
         );
         state = AuctionScanState.OPENING_AUCTION;
@@ -106,6 +132,7 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
             "SCANNER",
             "Started auction scan. Waiting for /" + command + " to open. maxPages=" + (scanAllPages ? "ALL" : maxPages)
                 + ", pageSwitchDelayMs=" + normalizeDelayMs(pageSwitchDelayMs)
+                + ", pageSwitchDelayJitterMs=" + normalizeJitterMs(pageSwitchDelayJitterMs)
         );
     }
 
@@ -277,7 +304,8 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
         state = AuctionScanState.WAITING_FOR_NEXT_PAGE;
         currentSession.pendingNextPageSlot = nextPageSlot;
         currentSession.activeSyncId = syncId;
-        currentSession.pageClickDelayTicks = currentSession.pageSwitchDelayTicks;
+        currentSession.randomizedPageClickDelayMs = randomizeDelayMs(currentSession.pageSwitchDelayMs, currentSession.pageSwitchDelayJitterMs);
+        currentSession.pageClickDelayTicks = toDelayTicks(currentSession.randomizedPageClickDelayMs);
         currentSession.pageWaitTicks = 0;
         currentSession.nextPageAttempts = 0;
     }
@@ -324,6 +352,7 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
             "Requested next page click. syncId=" + currentSession.activeSyncId
                 + ", slot=" + currentSession.pendingNextPageSlot
                 + ", attempt=" + currentSession.nextPageAttempts
+                + ", delayMs=" + currentSession.randomizedPageClickDelayMs
         );
     }
 
@@ -333,6 +362,21 @@ public final class AuctionScanCoordinator implements MinecraftClientEventListene
 
     private static int normalizeDelayMs(int pageSwitchDelayMs) {
         return pageSwitchDelayMs <= 0 ? DEFAULT_NEXT_PAGE_CLICK_DELAY_MS : pageSwitchDelayMs;
+    }
+
+    private static int normalizeJitterMs(int pageSwitchDelayJitterMs) {
+        return Math.max(0, pageSwitchDelayJitterMs);
+    }
+
+    private int randomizeDelayMs(int baseDelayMs, int jitterMs) {
+        int normalizedBaseDelayMs = normalizeDelayMs(baseDelayMs);
+        int normalizedJitterMs = normalizeJitterMs(jitterMs);
+        if (normalizedJitterMs == 0) {
+            return normalizedBaseDelayMs;
+        }
+
+        int delta = random.nextInt(normalizedJitterMs * 2 + 1) - normalizedJitterMs;
+        return Math.max(1, normalizedBaseDelayMs + delta);
     }
 
     private static int toDelayTicks(int pageSwitchDelayMs) {

@@ -54,8 +54,13 @@ final class AutobuyRuleEditorView {
         FlowLayout card = AutobuyUiComponents.card("Параметры конфигурации", "Общие настройки для всего набора правил.");
         card.gap(6);
         card.child(integerField("Интервал сканирования, сек", draft.scanIntervalSeconds, host.presenter()::updateScanInterval));
+        card.child(integerField("Разброс интервала, сек", draft.scanIntervalJitterSeconds, host.presenter()::updateScanIntervalJitter));
         card.child(integerField("Лимит страниц", draft.scanPageLimit, host.presenter()::updateScanPageLimit));
         card.child(integerField("Задержка смены страниц, мс", draft.pageSwitchDelayMs, host.presenter()::updatePageSwitchDelay));
+        card.child(integerField("Разброс задержки страниц, мс", draft.pageSwitchDelayJitterMs, host.presenter()::updatePageSwitchDelayJitter));
+        card.child(checkboxField("Анти-AFK включён", draft.antiAfkEnabled, host.presenter()::updateAntiAfkEnabled));
+        card.child(integerField("Интервал анти-AFK, сек", draft.antiAfkActionIntervalSeconds, host.presenter()::updateAntiAfkActionInterval));
+        card.child(integerField("Шанс прыжка анти-AFK, %", draft.antiAfkJumpChancePercent, host.presenter()::updateAntiAfkJumpChance));
         card.child(integerField("Маржа market research, %", draft.marketResearchTargetMarginPercent, host.presenter()::updateMarketResearchTargetMargin));
         card.child(integerField("Буфер риска market research, %", draft.marketResearchRiskBufferPercent, host.presenter()::updateMarketResearchRiskBuffer));
         card.child(cycleField("Режим логов", AutobuyUiTextSupport.localizeLogMode(draft.scanLogMode), host.presenter()::cycleLogMode));
@@ -256,6 +261,16 @@ final class AutobuyRuleEditorView {
         TextBoxComponent textBox = Components.textBox(Sizing.fill(), initialValue == null ? "" : String.valueOf(initialValue));
         textBox.onChanged().subscribe(onChange::accept);
         field.child(textBox);
+        return field;
+    }
+
+    private ParentComponent checkboxField(String label, boolean initialValue, java.util.function.Consumer<Boolean> onChange) {
+        FlowLayout field = Containers.verticalFlow(Sizing.fill(), Sizing.content());
+        field.gap(4);
+        CheckboxComponent checkbox = Components.checkbox(AutobuyUiTextSupport.uiText(label));
+        checkbox.checked(initialValue);
+        checkbox.onChanged(onChange::accept);
+        field.child(checkbox);
         return field;
     }
 

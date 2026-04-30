@@ -33,9 +33,14 @@ class JsonAutobuyRuleRepositoryTest {
         assertTrue(Files.exists(configPath));
         assertTrue(config.buyRules().isEmpty());
         assertEquals(30, config.scanIntervalSeconds());
+        assertEquals(2, config.scanIntervalJitterSeconds());
         assertEquals(10, config.scanPageLimit());
         assertEquals(200, config.pageSwitchDelayMs());
+        assertEquals(150, config.pageSwitchDelayJitterMs());
         assertEquals(AutobuyScanLogMode.MATCHED_ONLY, config.scanLogMode());
+        assertTrue(config.antiAfkEnabled());
+        assertEquals(7, config.antiAfkActionIntervalSeconds());
+        assertEquals(20, config.antiAfkJumpChancePercent());
         assertEquals(15, config.marketResearchTargetMarginPercent());
         assertEquals(5, config.marketResearchRiskBufferPercent());
     }
@@ -46,9 +51,14 @@ class JsonAutobuyRuleRepositoryTest {
         Files.writeString(configPath, """
             {
               "scanIntervalSeconds": 15,
+              "scanIntervalJitterSeconds": 4,
               "scanPageLimit": 6,
               "pageSwitchDelayMs": 450,
+              "pageSwitchDelayJitterMs": 90,
               "scanLogMode": "ALL",
+              "antiAfkEnabled": false,
+              "antiAfkActionIntervalSeconds": 11,
+              "antiAfkJumpChancePercent": 35,
               "marketResearchTargetMarginPercent": 18,
               "marketResearchRiskBufferPercent": 7,
               "buyRules": [
@@ -76,9 +86,14 @@ class JsonAutobuyRuleRepositoryTest {
 
         assertEquals(1, config.buyRules().size());
         assertEquals(15, config.scanIntervalSeconds());
+        assertEquals(4, config.scanIntervalJitterSeconds());
         assertEquals(6, config.scanPageLimit());
         assertEquals(450, config.pageSwitchDelayMs());
+        assertEquals(90, config.pageSwitchDelayJitterMs());
         assertEquals(AutobuyScanLogMode.ALL, config.scanLogMode());
+        assertEquals(false, config.antiAfkEnabled());
+        assertEquals(11, config.antiAfkActionIntervalSeconds());
+        assertEquals(35, config.antiAfkJumpChancePercent());
         assertEquals(18, config.marketResearchTargetMarginPercent());
         assertEquals(7, config.marketResearchRiskBufferPercent());
         BuyRule rule = config.buyRules().getFirst();
@@ -95,9 +110,14 @@ class JsonAutobuyRuleRepositoryTest {
 
         AutobuyConfig original = new AutobuyConfig(
             12,
+            3,
             5,
             275,
+            80,
             AutobuyScanLogMode.ALL,
+            true,
+            9,
+            25,
             18,
             6,
             List.of(new BuyRule(
@@ -125,6 +145,11 @@ class JsonAutobuyRuleRepositoryTest {
         assertTrue(rawJson.contains("\"level\": 5"));
         assertTrue(rawJson.contains("\"required_potion_effects\""));
         assertTrue(rawJson.contains("\"durationSeconds\": 45"));
+        assertTrue(rawJson.contains("\"scanIntervalJitterSeconds\": 3"));
+        assertTrue(rawJson.contains("\"pageSwitchDelayJitterMs\": 80"));
+        assertTrue(rawJson.contains("\"antiAfkEnabled\": true"));
+        assertTrue(rawJson.contains("\"antiAfkActionIntervalSeconds\": 9"));
+        assertTrue(rawJson.contains("\"antiAfkJumpChancePercent\": 25"));
         assertTrue(rawJson.contains("\"marketResearchTargetMarginPercent\": 18"));
         assertTrue(rawJson.contains("\"marketResearchRiskBufferPercent\": 6"));
     }
